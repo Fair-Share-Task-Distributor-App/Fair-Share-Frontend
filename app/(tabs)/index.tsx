@@ -1,98 +1,176 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
+import React, { useState } from "react";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Button, Card, Divider, Text, TextInput, useTheme } from "react-native-paper";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function LoginScreen() {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const theme = useTheme();
+  
+  // const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-export default function HomeScreen() {
+  const handleGoogleSignIn = async () => {
+    try {
+      // Configure Google Sign-In (you'll need to add your configuration)
+      // GoogleSignin.configure({
+      //   webClientId: 'YOUR_WEB_CLIENT_ID',
+      // });
+
+      // await GoogleSignin.hasPlayServices();
+      // const userInfo = await GoogleSignin.signIn();
+      // console.log('User info:', userInfo);
+
+      // For now, show an alert
+      alert("Google Sign-In would be implemented here");
+    } catch (error) {
+      console.error("Google Sign-In error:", error);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (isSignUp) {
+      // Handle sign up
+      console.log("Sign up:", { username, email, password });
+      alert("Sign up functionality would be implemented here");
+    } else {
+      // Handle sign in
+      console.log("Sign in:", { username, email, password });
+      alert("Sign in functionality would be implemented here");
+    }
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Card style={styles.card}>
+        <Card.Content>
+          <View style={styles.header}>
+            <MaterialDesignIcons name="account-circle" size={60} color={theme.colors.primary} />
+            <Text variant="titleLarge" style={styles.title}>
+              Fair Share
+            </Text>
+            <Text variant="titleMedium" style={styles.subtitle}>
+              Welcome! Please {isSignUp ? "create your account" : "sign in to continue"}
+            </Text>
+          </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+          <View style={styles.inputContainer}>
+            {isSignUp ? (
+              <>
+                <TextInput label="Username" value={username} onChangeText={setUsername} mode="outlined" style={styles.input} left={<TextInput.Icon icon="account" />} />
+                <TextInput label="Email" value={email} onChangeText={setEmail} mode="outlined" keyboardType="email-address" autoCapitalize="none" style={styles.input} left={<TextInput.Icon icon="email" />} />
+              </>
+            ) : (
+              <TextInput label="Username or Email" value={username} onChangeText={setUsername} mode="outlined" autoCapitalize="none" style={styles.input} left={<TextInput.Icon icon="account" />} />
+            )}
+
+            <TextInput
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              mode="outlined"
+              secureTextEntry={!showPassword}
+              style={styles.input}
+              left={<TextInput.Icon icon="lock" />}
+              right={<TextInput.Icon icon={showPassword ? "eye-off" : "eye"} onPress={() => setShowPassword(!showPassword)} />}
+            />
+          </View>
+
+          <Button mode="contained" onPress={handleSubmit} style={styles.submitButton} contentStyle={styles.buttonContent}>
+            {isSignUp ? "Create Account" : "Sign In"}
+          </Button>
+
+          <View style={styles.dividerContainer}>
+            <Divider style={styles.divider} />
+            <Text variant="titleMedium" style={styles.dividerText}>
+              OR
+            </Text>
+            <Divider style={styles.divider} />
+          </View>
+
+          <Button mode="outlined" onPress={handleGoogleSignIn} style={styles.googleButton} contentStyle={styles.buttonContent} icon={() => <MaterialDesignIcons name="google" size={20} color={theme.colors.primary} />}>
+            Continue with Google
+          </Button>
+
+          <View style={styles.accountSwitchContainer}>
+            <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+              <Text style={styles.accountSwitchText}>{isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}</Text>
+            </TouchableOpacity>
+          </View>
+        </Card.Content>
+      </Card>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+    backgroundColor: "#62616118",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  card: {
+    flex: 1,
+    elevation: 4,
+    borderRadius: 12,
+    justifyContent: "center", // vertical centering
+    alignItems: "center", // horizontal centering
+    paddingTop: 30,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  header: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginTop: 12,
+  },
+  subtitle: {
+    textAlign: "center",
+    marginTop: 8,
+    opacity: 0.7,
+  },
+  inputContainer: {
+    marginBottom: 24,
+  },
+  input: {
+    marginBottom: 16,
+  },
+  submitButton: {
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  buttonContent: {
+    height: 48,
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  divider: {
+    flex: 1,
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 12,
+    opacity: 0.6,
+  },
+  googleButton: {
+    borderRadius: 8,
+  },
+  accountSwitchContainer: {
+    alignItems: "center",
+    marginTop: 16,
+  },
+  accountSwitchText: {
+    fontSize: 12,
+    opacity: 0.7,
+    textDecorationLine: "underline",
   },
 });
