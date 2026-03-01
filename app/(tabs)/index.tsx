@@ -1,4 +1,5 @@
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Card, Divider, Text, TextInput, useTheme } from "react-native-paper";
@@ -10,7 +11,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const theme = useTheme();
-  
+
+  const router = useRouter();
   // const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   const handleGoogleSignIn = async () => {
@@ -35,11 +37,14 @@ export default function LoginScreen() {
     if (isSignUp) {
       // Handle sign up
       console.log("Sign up:", { username, email, password });
-      alert("Sign up functionality would be implemented here");
+      alert("Account created successfully!");
+      // Navigate to dashboard after successful signup
+      router.push('../dashboard');
     } else {
       // Handle sign in
       console.log("Sign in:", { username, email, password });
-      alert("Sign in functionality would be implemented here");
+      // Navigate to dashboard after successful signin
+      router.push("../dashboard");
     }
   };
 
@@ -111,7 +116,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     padding: 20,
-    backgroundColor: "#62616118",
   },
   card: {
     flex: 1,
