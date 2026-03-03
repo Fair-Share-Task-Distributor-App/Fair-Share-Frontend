@@ -1,8 +1,10 @@
+import { GoogleSignin, GoogleSigninButton, isErrorWithCode, isSuccessResponse, statusCodes } from "@react-native-google-signin/google-signin";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Card, Divider, Text, TextInput, useTheme } from "react-native-paper";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -10,26 +12,61 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isGoogleSigninInProgress, setIsGoogleSigninInProgress] = useState(false);
   const theme = useTheme();
 
   const router = useRouter();
-  // const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  // Configure Google Sign-In
+  React.useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: "73051991942-f6o4m6eoieo49cpbe7vrvb0pamg41k3n.apps.googleusercontent.com",
+      offlineAccess: true,
+      forceCodeForRefreshToken: true,
+    });
+  }, []);
 
   const handleGoogleSignIn = async () => {
-    try {
-      // Configure Google Sign-In (you'll need to add your configuration)
-      // GoogleSignin.configure({
-      //   webClientId: 'YOUR_WEB_CLIENT_ID',
-      // });
+  try {
+    setIsGoogleSigninInProgress(true);
+    await GoogleSignin.hasPlayServices();
+    const response = await GoogleSignin.signIn();
 
-      // await GoogleSignin.hasPlayServices();
-      // const userInfo = await GoogleSignin.signIn();
-      // console.log('User info:', userInfo);
-
-      // For now, show an alert
-      alert("Google Sign-In would be implemented here");
-    } catch (error) {
-      console.error("Google Sign-In error:", error);
+    if (isSuccessResponse(response)) {
+      const { idToken } = response.data;
+      // Send the ID token to backend and receive JWT token back
+      const authResponse = await fetch(`${apiUrl}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken })
+      });
+      
+      const { token, user: userInfo } = await authResponse.json();
+      
+      // Store your backend token
+      await AsyncStorage.setItem("JWT_TOKEN", token);
+      
+      router.push("../dashboard");
+    }
+    } catch (error: any) {
+      if (isErrorWithCode(error)){
+        switch (error.code) {
+          case statusCodes.SIGN_IN_CANCELLED:
+            Alert.alert("Sign in cancelled");
+            break;
+          case statusCodes.IN_PROGRESS:
+            Alert.alert("Sign in is already in progress");
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            Alert.alert("Play services not available");
+            break;
+          default:
+            Alert.alert("Something went wrong", error.toString());
+        }
+      }
+    } finally {
+      setIsGoogleSigninInProgress(false);
     }
   };
 
@@ -39,7 +76,7 @@ export default function LoginScreen() {
       console.log("Sign up:", { username, email, password });
       alert("Account created successfully!");
       // Navigate to dashboard after successful signup
-      router.push('../dashboard');
+      router.push("../dashboard");
     } else {
       // Handle sign in
       console.log("Sign in:", { username, email, password });
@@ -88,6 +125,12 @@ export default function LoginScreen() {
             {isSignUp ? "Create Account" : "Sign In"}
           </Button>
 
+          <View style={styles.accountSwitchContainer}>
+            <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+              <Text style={styles.accountSwitchText}>{isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.dividerContainer}>
             <Divider style={styles.divider} />
             <Text variant="titleMedium" style={styles.dividerText}>
@@ -96,15 +139,13 @@ export default function LoginScreen() {
             <Divider style={styles.divider} />
           </View>
 
-          <Button mode="outlined" onPress={handleGoogleSignIn} style={styles.googleButton} contentStyle={styles.buttonContent} icon={() => <MaterialDesignIcons name="google" size={20} color={theme.colors.primary} />}>
-            Continue with Google
-          </Button>
-
-          <View style={styles.accountSwitchContainer}>
-            <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-              <Text style={styles.accountSwitchText}>{isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}</Text>
-            </TouchableOpacity>
-          </View>
+          {Platform.OS === "web" ? (
+            <Button mode="outlined" onPress={handleGoogleSignIn} style={styles.googleButton} contentStyle={styles.googleButtonContent} icon="google" disabled={isGoogleSigninInProgress} loading={isGoogleSigninInProgress}>
+              {isGoogleSigninInProgress ? "Signing in..." : "Continue with Google"}
+            </Button>
+          ) : (
+            <GoogleSigninButton onPress={handleGoogleSignIn} size={GoogleSigninButton.Size.Wide} color={GoogleSigninButton.Color.Dark} disabled={isGoogleSigninInProgress} />
+          )}
         </Card.Content>
       </Card>
     </ScrollView>
@@ -127,7 +168,6 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: 24,
   },
   title: {
     fontSize: 28,
@@ -165,16 +205,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.6,
   },
-  googleButton: {
-    borderRadius: 8,
-  },
   accountSwitchContainer: {
     alignItems: "center",
-    marginTop: 16,
+    marginBottom: 16,
   },
   accountSwitchText: {
     fontSize: 12,
     opacity: 0.7,
     textDecorationLine: "underline",
+  },
+  googleButton: {
+    borderRadius: 8,
+    marginBottom: 20,
+    borderColor: "#4285f4",
+    borderWidth: 1,
+  },
+  googleButtonContent: {
+    height: 48,
   },
 });
