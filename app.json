@@ -31,6 +31,12 @@
     "plugins": [
       "expo-router",
       "expo-dev-client",
+      // [
+      //   "@react-native-google-signin/google-signin",
+      //   {
+      //     "iosUrlScheme": "com.googleusercontent.apps._some_id_here_"
+      //   }
+      // ],
       [
         "expo-splash-screen",
         {
@@ -43,12 +49,7 @@
           }
         }
       ],
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.73051991942-m6h6j43ukl61c37a6s959gm1etqbb0ni"
-        }
-      ]
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
