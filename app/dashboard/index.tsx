@@ -17,7 +17,7 @@ export default function TasksScreen() {
       title: "Design mobile app wireframes",
       description: "Create wireframes for new mobile banking app features",
       assignedDate: "2026-02-26",
-      dueDate: "2026-03-08",
+      dueAt: "2026-03-08",
       pointsWorth: 20,
       skillsRequired: ["UI/UX Design", "Figma"],
     },
@@ -26,7 +26,7 @@ export default function TasksScreen() {
       title: "Database optimization",
       description: "Optimize SQL queries and improve database performance",
       assignedDate: "2026-02-27",
-      dueDate: "2026-03-12",
+      dueAt: "2026-03-12",
       pointsWorth: 15,
       skillsRequired: ["SQL", "Database Management"],
     },
@@ -39,15 +39,6 @@ export default function TasksScreen() {
       pointsWorth: 8,
       skillsRequired: ["Technical Writing", "API Design"],
     },
-    {
-      id: "p4",
-      title: "Frontend performance testing",
-      description: "Conduct performance tests and identify bottlenecks",
-      assignedDate: "2026-03-01",
-      dueDate: "2026-03-15",
-      pointsWorth: 12,
-      skillsRequired: ["Performance Testing", "JavaScript"],
-    },
   ];
 
   const assignedTasks = [
@@ -57,7 +48,6 @@ export default function TasksScreen() {
       description: "Create wireframes and mockups for the updated authentication process",
       priority: "High",
       status: "In Progress",
-      team: "Design Team",
       dueDate: "2026-03-05",
       assignedBy: "Sarah Johnson",
     },
@@ -67,10 +57,9 @@ export default function TasksScreen() {
       description: "Build secure login and registration endpoints with JWT tokens",
       priority: "High",
       status: "Done",
-      team: "Development Team",
       dueDate: "2026-03-10",
       assignedBy: "Mike Chen",
-    }
+    },
   ];
 
   const getPriorityColor = (priority: string) => {
@@ -127,7 +116,6 @@ export default function TasksScreen() {
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.Content title="Dashboard" />
-        <Appbar.Action icon="account-group" onPress={() => router.push("/dashboard/teams")} />
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
         <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
       </Appbar.Header>
@@ -185,23 +173,11 @@ export default function TasksScreen() {
 
                     <View style={styles.statusContainer}>
                       {task.status === "Done" ? (
-                        <Button 
-                          mode="contained" 
-                          style={[styles.statusButton, { backgroundColor: getStatusColor(task.status) }]} 
-                          contentStyle={{ height: 32 }} 
-                          labelStyle={{ color: "white", fontSize: 11 }}
-                          disabled
-                        >
+                        <Button mode="contained" style={[styles.statusButton, { backgroundColor: getStatusColor(task.status) }]} contentStyle={{ height: 32 }} labelStyle={{ color: "white", fontSize: 11 }} disabled>
                           ✓
                         </Button>
                       ) : (
-                        <Button 
-                          mode="outlined" 
-                          style={styles.statusButton} 
-                          contentStyle={{ height: 32 }} 
-                          labelStyle={{ color: getStatusColor(task.status), fontSize: 11 }}
-                          onPress={() => handleTaskCompletion(task.id)}
-                        >
+                        <Button mode="outlined" style={styles.statusButton} contentStyle={{ height: 32 }} labelStyle={{ color: getStatusColor(task.status), fontSize: 11 }} onPress={() => handleTaskCompletion(task.id)}>
                           Change Status
                         </Button>
                       )}
@@ -254,7 +230,7 @@ export default function TasksScreen() {
                       <View style={styles.dateRow}>
                         <MaterialDesignIcons name="calendar-clock" size={14} color={theme.colors.onSurfaceVariant} />
                         <Text variant="bodySmall" style={styles.dateText}>
-                          Due: {task.dueDate}
+                          Due: {task.dueAt}
                         </Text>
                       </View>
                     </View>

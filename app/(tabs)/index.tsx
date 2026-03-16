@@ -41,7 +41,7 @@ export default function LoginScreen() {
       if (isSuccessResponse(response)) {
         const { idToken } = response.data;
         // Send the ID token to backend and receive JWT token back
-        const authResponse = await fetch(`${apiUrl}/auth/google`, {
+        const authResponse = await fetch(`${apiUrl}/api/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken }),
@@ -111,34 +111,24 @@ export default function LoginScreen() {
     if (!validateForm()) {
       return;
     }
-
-    // console.log(apiUrl + "/home");
-
-    // const response = await fetch(`${apiUrl}/home`, {
-    //   method: "GET",
-    //   headers: { "Content-Type": "application/json" },
-    // })
-    // const print = await response.json();
-    // console.log("HERE" + print)
-
     try {
       let authResponse;
       if (isSignUp) {
         // Handle sign up
-        authResponse = await fetch(`${apiUrl}/auth/signup`, {
+        authResponse = await fetch(`${apiUrl}/api/auth/signup`, {
           method: "POST",
           headers: { Accept: "application/json", "Content-Type": "application/json" },
           body: JSON.stringify({ name: name, email, password }),
         });
       } else {
         // Handle sign in
-        authResponse = await fetch(`${apiUrl}/auth/login`, {
+        authResponse = await fetch(`${apiUrl}/api/auth/login`, {
           method: "POST",
           headers: { Accept: "application/json", "Content-Type": "application/json" },
           body: JSON.stringify({ name, email: name, password }),
         });
       }
-      const { token } = await authResponse.json();
+      const { token, isNewUser } = await authResponse.json();
       await SecureStore.setItemAsync("JWT_TOKEN", token);
       router.push("../dashboard");
     } catch (error) {

@@ -11,14 +11,12 @@ export default function ProfileScreen() {
     name: "John Doe",
     email: "john.doe@fairshare.com",
     role: "Frontend Developer",
-    team: "Development Team",
     joinDate: "January 2024",
     avatar: "JD",
   };
 
   const stats = [
     { label: "Tasks Completed", value: "42", icon: "check-circle" },
-    { label: "Teams", value: "3", icon: "account-group" },
     { label: "Projects", value: "8", icon: "folder" },
   ];
 
@@ -40,9 +38,6 @@ export default function ProfileScreen() {
               </Text>
               <Text variant="bodyLarge" style={styles.userRole}>
                 {user.role}
-              </Text>
-              <Text variant="bodyMedium" style={styles.userTeam}>
-                {user.team}
               </Text>
               <Text variant="bodySmall" style={styles.joinDate}>
                 Member since {user.joinDate}
@@ -131,14 +126,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-
   },
   content: {
     flex: 1,
   },
   profileCard: {
     margin: 16,
-
   },
   profileContent: {
     alignItems: "center",
@@ -155,12 +148,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   userRole: {
-    marginBottom: 2,
-    opacity: 0.8,
-  },
-  userTeam: {
     marginBottom: 8,
-    opacity: 0.7,
+    opacity: 0.8,
   },
   joinDate: {
     opacity: 0.6,
@@ -168,7 +157,6 @@ const styles = StyleSheet.create({
   statsCard: {
     marginHorizontal: 16,
     marginBottom: 16,
-
   },
   sectionTitle: {
     fontWeight: "600",
@@ -193,7 +181,6 @@ const styles = StyleSheet.create({
   settingsCard: {
     marginHorizontal: 16,
     marginBottom: 16,
-
   },
   logoutContainer: {
     padding: 16,
