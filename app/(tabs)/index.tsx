@@ -118,14 +118,14 @@ export default function LoginScreen() {
         authResponse = await fetch(`${apiUrl}/api/auth/signup`, {
           method: "POST",
           headers: { Accept: "application/json", "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name, email, password }),
+          body: JSON.stringify({ name, email, password }),
         });
       } else {
         // Handle sign in
         authResponse = await fetch(`${apiUrl}/api/auth/login`, {
           method: "POST",
           headers: { Accept: "application/json", "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email: name, password }),
+          body: JSON.stringify({ email, password }),
         });
       }
       const { token, isNewUser } = await authResponse.json();
@@ -187,10 +187,10 @@ export default function LoginScreen() {
             ) : (
               <View>
                 <TextInput
-                  label="Username or Email"
+                  label="Email"
                   value={name}
                   onChangeText={(text) => {
-                    setName(text);
+                    setEmail(text);
                     if (nameError) setNameError("");
                   }}
                   mode="outlined"

@@ -1,6 +1,7 @@
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import React, { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Appbar, Button, Card, Chip, FAB, SegmentedButtons, Text, useTheme } from "react-native-paper";
 
@@ -10,57 +11,33 @@ export default function TasksScreen() {
   const [userRatings, setUserRatings] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState("myTasks");
   const [fabOpen, setFabOpen] = useState(false);
+  const [assignedTasks, setAssignedTasks] = useState<any[]>([]);
+  const [postedTasks, setPostedTasks] = useState<any[]>([]);
 
-  const postedTasks = [
-    {
-      id: "p1",
-      title: "Design mobile app wireframes",
-      description: "Create wireframes for new mobile banking app features",
-      assignedDate: "2026-02-26",
-      dueAt: "2026-03-08",
-      pointsWorth: 20,
-      skillsRequired: ["UI/UX Design", "Figma"],
-    },
-    {
-      id: "p2",
-      title: "Database optimization",
-      description: "Optimize SQL queries and improve database performance",
-      assignedDate: "2026-02-27",
-      dueAt: "2026-03-12",
-      pointsWorth: 15,
-      skillsRequired: ["SQL", "Database Management"],
-    },
-    {
-      id: "p3",
-      title: "API documentation update",
-      description: "Update REST API documentation with new endpoints",
-      assignedDate: "2026-02-28",
-      dueDate: "2026-03-10",
-      pointsWorth: 8,
-      skillsRequired: ["Technical Writing", "API Design"],
-    },
-  ];
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  const assignedTasks = [
-    {
-      id: "1",
-      title: "Design new login flow",
-      description: "Create wireframes and mockups for the updated authentication process",
-      priority: "High",
-      status: "In Progress",
-      dueDate: "2026-03-05",
-      assignedBy: "Sarah Johnson",
-    },
-    {
-      id: "2",
-      title: "Implement user authentication API",
-      description: "Build secure login and registration endpoints with JWT tokens",
-      priority: "High",
-      status: "Done",
-      dueDate: "2026-03-10",
-      assignedBy: "Mike Chen",
-    },
-  ];
+  useEffect(() => {
+    const fetchTasks = async () => {
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
+      console.log("TOKEN:", token);
+      const headers = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      const [myTasksRes, teamTasksRes] = await Promise.all([fetch(`${apiUrl}/api/Task/myTasks`, { method: "GET", headers }), fetch(`${apiUrl}/api/Task/teamTasks`, { method: "GET", headers })]);
+
+      if (myTasksRes.ok) {
+        setAssignedTasks(await myTasksRes.json());
+      }
+      if (teamTasksRes.ok) {
+        setPostedTasks(await teamTasksRes.json());
+      }
+    };
+
+    void fetchTasks();
+  }, [apiUrl]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -236,7 +213,7 @@ export default function TasksScreen() {
                     </View>
 
                     <View style={styles.skillsContainer}>
-                      {task.skillsRequired.map((skill, index) => (
+                      {task.skillsRequired.map((skill: string, index: number) => (
                         <Chip key={index} style={styles.skillChip} compact>
                           {skill}
                         </Chip>
