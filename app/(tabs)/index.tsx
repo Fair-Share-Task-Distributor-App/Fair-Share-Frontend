@@ -47,7 +47,7 @@ export default function LoginScreen() {
           body: JSON.stringify({ idToken }),
         });
 
-        const { token, user: userInfo } = await authResponse.json();
+        const { token } = await authResponse.json();
 
         // Store token securely
         await SecureStore.setItemAsync("JWT_TOKEN", token);
@@ -83,14 +83,13 @@ export default function LoginScreen() {
     setEmailError("");
     setPasswordError("");
 
-    // Validate name/username
-    if (!name.trim()) {
-      setNameError(isSignUp ? "Username is required" : "Username or email is required");
+    // Validate fields by mode
+    if (isSignUp && !name.trim()) {
+      setNameError("Username is required");
       isValid = false;
     }
 
-    // Validate email (only for signup)
-    if (isSignUp && !email.trim()) {
+    if (!email.trim()) {
       setEmailError("Email is required");
       isValid = false;
     }
@@ -128,7 +127,7 @@ export default function LoginScreen() {
           body: JSON.stringify({ email, password }),
         });
       }
-      const { token, isNewUser } = await authResponse.json();
+      const { token } = await authResponse.json();
       await SecureStore.setItemAsync("JWT_TOKEN", token);
       router.push("../dashboard");
     } catch (error) {
@@ -141,10 +140,7 @@ export default function LoginScreen() {
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.header}>
-            <MaterialDesignIcons name="account-circle" size={60} color={theme.colors.primary} />
-            <Text variant="titleLarge" style={styles.title}>
-              Fair Share
-            </Text>
+            <MaterialDesignIcons name="account-circle" size={100} color={theme.colors.primary} />
             <Text variant="titleMedium" style={styles.subtitle}>
               Welcome! Please {isSignUp ? "create your account" : "sign in to continue"}
             </Text>
@@ -188,17 +184,17 @@ export default function LoginScreen() {
               <View>
                 <TextInput
                   label="Email"
-                  value={name}
+                  value={email}
                   onChangeText={(text) => {
                     setEmail(text);
-                    if (nameError) setNameError("");
+                    if (emailError) setEmailError("");
                   }}
                   mode="outlined"
                   autoCapitalize="none"
-                  style={[styles.input, nameError ? styles.inputError : null]}
+                  style={[styles.input, emailError ? styles.inputError : null]}
                   left={<TextInput.Icon icon="account" />}
                 />
-                {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+                {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
               </View>
             )}
 
@@ -263,7 +259,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center", // vertical centering
     alignItems: "center", // horizontal centering
-    paddingTop: 30,
+    paddingTop: 90,
   },
   header: {
     alignItems: "center",
