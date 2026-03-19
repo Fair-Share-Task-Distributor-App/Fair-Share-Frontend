@@ -246,10 +246,6 @@ export default function TasksScreen() {
                 </Text>
               </View>
 
-              <Button mode="outlined" onPress={() => router.push("/dashboard/scoring")} style={styles.scoreButton} contentStyle={styles.scoreButtonContent}>
-                Change My Preferences
-              </Button>
-
               {sortedUnassignedTasks.map((task) => (
                 <Card key={task.id} style={styles.postedTaskCard} mode="outlined">
                   <Card.Content>
@@ -261,12 +257,6 @@ export default function TasksScreen() {
                         <Text variant="bodySmall" style={styles.pointsWorth}>
                           {task.points} points
                         </Text>
-                        <View style={styles.ratingPill}>
-                          <MaterialDesignIcons name="star" size={14} color="#ff9800" />
-                          <Text variant="bodySmall" style={styles.ratingPillText}>
-                            {formatPreferenceRating(task.userPreferenceRating)}
-                          </Text>
-                        </View>
                       </View>
                     </View>
 
@@ -291,6 +281,18 @@ export default function TasksScreen() {
                           Auto-assign: {formatDateTime(task.autoAssignedAt ?? task.autoAssignAt)}
                         </Text>
                       </View>
+                    </View>
+
+                    <View style={styles.unassignedActionRow}>
+                      <View style={styles.ratingPill}>
+                        <MaterialDesignIcons name="star" size={14} color="#ff9800" />
+                        <Text variant="bodySmall" style={styles.ratingPillText}>
+                          {formatPreferenceRating(task.userPreferenceRating)}
+                        </Text>
+                      </View>
+                      <Button mode="outlined" style={styles.statusButton} labelStyle={{ fontSize: 12 }} onPress={() => router.push("/dashboard/scoring")}>
+                        Rate
+                      </Button>
                     </View>
                   </Card.Content>
                 </Card>
@@ -464,6 +466,12 @@ const styles = StyleSheet.create({
   statusContainer: {
     flexDirection: "row",
     justifyContent: "flex-end",
+  },
+  unassignedActionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 8,
   },
   statusButton: {
     marginRight: 4,
