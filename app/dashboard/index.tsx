@@ -1,3 +1,4 @@
+import { Slider } from "@miblanchard/react-native-slider";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -14,6 +15,9 @@ export default function TasksScreen() {
   const [fabOpen, setFabOpen] = useState(false);
   const [assignedTasks, setAssignedTasks] = useState<any[]>([]);
   const [unassignedTasks, setUnassignedTasks] = useState<any[]>([]);
+  const [isSubmittingRatings, setIsSubmittingRatings] = useState(false);
+  const [ratingDrafts, setRatingDrafts] = useState<Record<string, number>>({});
+  const [ratingEditorsOpen, setRatingEditorsOpen] = useState<Record<string, boolean>>({});
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
@@ -88,6 +92,25 @@ export default function TasksScreen() {
     return `${value.toFixed(1)}/10`;
   };
 
+  const normalizePreferenceRating = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return null;
+    return Math.max(1, Math.min(10, Math.round(value)));
+  };
+
+  const getRatingColor = (rating: number) => {
+    if (rating <= 3) return "#f44336";
+    if (rating <= 6) return "#ff9800";
+    return "#4caf50";
+  };
+
+  const getDisplayedRating = (task: any) => {
+    const draftValue = ratingDrafts[task.id];
+    if (typeof draftValue === "number") return draftValue;
+
+    const currentValue = normalizePreferenceRating(task.userPreferenceRating);
+    return currentValue ?? 5;
+  };
+
   const hasDescription = (value?: string | null) => typeof value === "string" && value.trim().length > 0;
 
   const handleTaskCompletion = (taskId: string) => {
@@ -149,10 +172,91 @@ export default function TasksScreen() {
     return true;
   });
 
+  const hasPendingRatingChanges = unassignedTasks.some((task) => {
+    const draftValue = ratingDrafts[task.id];
+    if (typeof draftValue !== "number") return false;
+    return normalizePreferenceRating(task.userPreferenceRating) !== draftValue;
+  });
+
+  const toggleRatingEditor = (task: any) => {
+    setRatingEditorsOpen((prev) => {
+      const willOpen = !prev[task.id];
+      if (willOpen && typeof ratingDrafts[task.id] !== "number") {
+        const currentRating = normalizePreferenceRating(task.userPreferenceRating) ?? 5;
+        setRatingDrafts((draftPrev) => ({ ...draftPrev, [task.id]: currentRating }));
+      }
+      return { ...prev, [task.id]: willOpen };
+    });
+  };
+
+  const handleRatingChange = (taskId: string, sliderValue: number) => {
+    const nextValue = Math.max(1, Math.min(10, Math.round(sliderValue)));
+    setRatingDrafts((prev) => ({
+      ...prev,
+      [taskId]: nextValue,
+    }));
+  };
+
+  const submitRatingChanges = async () => {
+    const changedTasks = unassignedTasks.filter((task) => {
+      const draftValue = ratingDrafts[task.id];
+      if (typeof draftValue !== "number") return false;
+      return normalizePreferenceRating(task.userPreferenceRating) !== draftValue;
+    });
+
+    if (changedTasks.length === 0) {
+      Alert.alert("No changes", "Adjust at least one rating before submitting.");
+      return;
+    }
+
+    try {
+      setIsSubmittingRatings(true);
+
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
+      const headers = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      await Promise.all(
+        changedTasks.map(async (task) => {
+          const response = await fetch(`${apiUrl}/api/TaskPreference/${task.id}`, {
+            method: "PUT",
+            headers,
+            body: JSON.stringify({ "score": ratingDrafts[task.id] }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Could not update ${task.title ?? "a task"}.`);
+          }
+        }),
+      );
+
+      setUnassignedTasks((prev) =>
+        prev.map((task) => {
+          const draftValue = ratingDrafts[task.id];
+          if (typeof draftValue !== "number") return task;
+          if (normalizePreferenceRating(task.userPreferenceRating) === draftValue) return task;
+          return {
+            ...task,
+            userPreferenceRating: draftValue,
+          };
+        }),
+      );
+
+      Alert.alert("Saved", `Updated ${changedTasks.length} rating${changedTasks.length !== 1 ? "s" : ""}.`);
+    } catch (error) {
+      Alert.alert("Save failed", error instanceof Error ? error.message : "Unable to submit rating changes.");
+    } finally {
+      setIsSubmittingRatings(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.Content title="Dashboard" />
+        <Appbar.Content title="app logo here" />
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
         <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
       </Appbar.Header>
@@ -213,7 +317,7 @@ export default function TasksScreen() {
                       <View style={styles.metaRow}>
                         <MaterialDesignIcons name="account-group" size={14} color={theme.colors.onSurfaceVariant} />
                         <Text variant="bodySmall" style={styles.metaText}>
-                          Assigned: {formatAssignedNames(task.assignedAccounts)}
+                          Assigned To: {formatAssignedNames(task.assignedAccounts)}
                         </Text>
                       </View>
                     </View>
@@ -287,16 +391,51 @@ export default function TasksScreen() {
                       <View style={styles.ratingPill}>
                         <MaterialDesignIcons name="star" size={14} color="#ff9800" />
                         <Text variant="bodySmall" style={styles.ratingPillText}>
-                          {formatPreferenceRating(task.userPreferenceRating)}
+                          {formatPreferenceRating(ratingDrafts[task.id] ?? task.userPreferenceRating)}
                         </Text>
                       </View>
-                      <Button mode="outlined" style={styles.statusButton} labelStyle={{ fontSize: 12 }} onPress={() => router.push("/dashboard/scoring")}>
-                        Rate
+                      <Button mode="outlined" style={styles.statusButton} labelStyle={{ fontSize: 12 }} onPress={() => toggleRatingEditor(task)}>
+                        {ratingEditorsOpen[task.id] ? "Hide" : "Rate"}
                       </Button>
                     </View>
+
+                    {ratingEditorsOpen[task.id] ? (
+                      <View style={styles.inlineScoringContainer}>
+                        <View style={styles.inlineScoringHeader}>
+                          <Text variant="bodySmall" style={styles.inlineScoringLabel}>
+                            Preference
+                          </Text>
+                          <Text variant="titleMedium" style={[styles.inlineScoringValue, { color: getRatingColor(getDisplayedRating(task)) }]}>
+                            {getDisplayedRating(task)}
+                          </Text>
+                        </View>
+                        <Slider
+                          containerStyle={styles.inlineSlider}
+                          value={getDisplayedRating(task)}
+                          onValueChange={(value) => handleRatingChange(task.id, value[0])}
+                          minimumValue={1}
+                          maximumValue={10}
+                          step={1}
+                          thumbStyle={{ backgroundColor: getRatingColor(getDisplayedRating(task)) }}
+                          trackStyle={{ backgroundColor: theme.colors.surfaceVariant }}
+                        />
+                        <View style={styles.inlineScoringEnds}>
+                          <Text variant="bodySmall" style={styles.inlineScoringEndText}>
+                            1 Low
+                          </Text>
+                          <Text variant="bodySmall" style={styles.inlineScoringEndText}>
+                            10 High
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
                   </Card.Content>
                 </Card>
               ))}
+
+              <Button mode="contained" onPress={() => void submitRatingChanges()} style={styles.submitChangesButton} contentStyle={styles.submitChangesButtonContent} disabled={!hasPendingRatingChanges || isSubmittingRatings} loading={isSubmittingRatings}>
+                Submit All Changes
+              </Button>
             </View>
           </ScrollView>
         )}
@@ -472,10 +611,48 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: 8,
+    marginTop: 4,
+  },
+  inlineScoringContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(0, 0, 0, 0.12)",
+  },
+  inlineScoringHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  inlineScoringLabel: {
+    opacity: 0.75,
+  },
+  inlineScoringValue: {
+    fontWeight: "700",
+  },
+  inlineSlider: {
+    height: 38,
+  },
+  inlineScoringEnds: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  inlineScoringEndText: {
+    opacity: 0.65,
   },
   statusButton: {
     marginRight: 4,
     borderRadius: 16,
+  },
+  submitChangesButton: {
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  submitChangesButtonContent: {
+    height: 46,
   },
   fabContainer: {
     position: "absolute",
