@@ -57,6 +57,12 @@
         "projectId": "b2e3026f-8e91-4bd1-a1b5-d0fb65e61fd0"
       }
     },
-    "owner": "thet_wai"
+    "owner": "thet_wai",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b2e3026f-8e91-4bd1-a1b5-d0fb65e61fd0"
+    }
   }
 }

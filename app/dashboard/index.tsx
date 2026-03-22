@@ -12,7 +12,6 @@ export default function TasksScreen() {
   const [activeTab, setActiveTab] = useState("myTasks");
   const [taskFilter, setTaskFilter] = useState("active");
   const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
-  const [fabOpen, setFabOpen] = useState(false);
   const [assignedTasks, setAssignedTasks] = useState<any[]>([]);
   const [unassignedTasks, setUnassignedTasks] = useState<any[]>([]);
   const [isSubmittingRatings, setIsSubmittingRatings] = useState(false);
@@ -224,7 +223,7 @@ export default function TasksScreen() {
           const response = await fetch(`${apiUrl}/api/TaskPreference/${task.id}`, {
             method: "PUT",
             headers,
-            body: JSON.stringify({ "score": ratingDrafts[task.id] }),
+            body: JSON.stringify({ score: ratingDrafts[task.id] }),
           });
 
           if (!response.ok) {
@@ -255,8 +254,7 @@ export default function TasksScreen() {
 
   return (
     <View style={styles.container}>
-      <Appbar.Header>
-        <Appbar.Content title="app logo here" />
+      <Appbar.Header style={{ marginLeft: "auto"}}>
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
         <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
       </Appbar.Header>
@@ -389,9 +387,8 @@ export default function TasksScreen() {
 
                     <View style={styles.unassignedActionRow}>
                       <View style={styles.ratingPill}>
-                        <MaterialDesignIcons name="star" size={14} color="#ff9800" />
-                        <Text variant="bodySmall" style={styles.ratingPillText}>
-                          {formatPreferenceRating(ratingDrafts[task.id] ?? task.userPreferenceRating)}
+                        <Text variant="bodyMedium" style={styles.ratingPillText}>
+                          Preference: {formatPreferenceRating(ratingDrafts[task.id] ?? task.userPreferenceRating)}
                         </Text>
                       </View>
                       <Button mode="outlined" style={styles.statusButton} labelStyle={{ fontSize: 12 }} onPress={() => toggleRatingEditor(task)}>
@@ -403,11 +400,14 @@ export default function TasksScreen() {
                       <View style={styles.inlineScoringContainer}>
                         <View style={styles.inlineScoringHeader}>
                           <Text variant="bodySmall" style={styles.inlineScoringLabel}>
-                            Preference
+                            Adjust Preference
                           </Text>
-                          <Text variant="titleMedium" style={[styles.inlineScoringValue, { color: getRatingColor(getDisplayedRating(task)) }]}>
-                            {getDisplayedRating(task)}
-                          </Text>
+                          <View style={styles.currentRatingValueRow}>
+                            <MaterialDesignIcons name="star" size={15} color={getRatingColor(getDisplayedRating(task))} />
+                            <Text variant="titleMedium" style={[styles.inlineScoringValue, { color: getRatingColor(getDisplayedRating(task)) }]}>
+                              Current: {getDisplayedRating(task)}/10
+                            </Text>
+                          </View>
                         </View>
                         <Slider
                           containerStyle={styles.inlineSlider}
@@ -441,31 +441,9 @@ export default function TasksScreen() {
         )}
       </View>
 
-      {/* Multi-Action FAB */}
+      {/* Create new task */}
       <View style={styles.fabContainer}>
-        {fabOpen && (
-          <>
-            <FAB
-              icon="calendar"
-              size="small"
-              style={[styles.fabOption, styles.fabCalendar]}
-              onPress={() => {
-                console.log("Open calendar");
-                setFabOpen(false);
-              }}
-            />
-            <FAB
-              icon="plus"
-              size="small"
-              style={[styles.fabOption, styles.fabAdd]}
-              onPress={() => {
-                console.log("Add new task");
-                setFabOpen(false);
-              }}
-            />
-          </>
-        )}
-        <FAB icon={fabOpen ? "close" : "menu"} style={styles.fabMain} onPress={() => setFabOpen(!fabOpen)} />
+        <FAB icon={"plus"} style={styles.fabMain} onPress={() => router.push("/dashboard/newTask")} />
       </View>
     </View>
   );
@@ -630,6 +608,11 @@ const styles = StyleSheet.create({
   },
   inlineScoringValue: {
     fontWeight: "700",
+  },
+  currentRatingValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   inlineSlider: {
     height: 38,

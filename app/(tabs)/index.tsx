@@ -1,10 +1,9 @@
 import { GoogleSignin, GoogleSigninButton, isErrorWithCode, isSuccessResponse, statusCodes } from "@react-native-google-signin/google-signin";
-import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Button, Card, Divider, Text, TextInput, useTheme } from "react-native-paper";
+import { Alert, Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Button, Card, Divider, Text, TextInput } from "react-native-paper";
 
 export default function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -18,7 +17,6 @@ export default function LoginScreen() {
   const [nameError, setNameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const theme = useTheme();
 
   const router = useRouter();
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -74,6 +72,12 @@ export default function LoginScreen() {
       setIsGoogleSigninInProgress(false);
     }
   };
+
+  // const handleDebugLogin = async () => {
+  //   await SecureStore.setItemAsync("JWT_TOKEN", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0IiwidGVhbUlkIjoiMSIsImV4cCI6MTc3NDMxMTIzOSwiaXNzIjoiRmFpclNoYXJlQXBwIiwiYXVkIjoiRmFpclNoYXJlQXBwIn0.MzqobZAvJQExXI9O0BU2j5r8gW_0AWZV0LHjiZ3IQQs");
+
+  //   router.push("/dashboard");
+  // };
 
   const validateForm = () => {
     let isValid = true;
@@ -140,7 +144,7 @@ export default function LoginScreen() {
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.header}>
-            <MaterialDesignIcons name="account-circle" size={100} color={theme.colors.primary} />
+            <Image source={require("../../assets/images/Fair Share Logo_transparent.png")} style={styles.logo} resizeMode="contain" />
             <Text variant="titleMedium" style={styles.subtitle}>
               Welcome! Please {isSignUp ? "create your account" : "sign in to continue"}
             </Text>
@@ -241,6 +245,10 @@ export default function LoginScreen() {
           ) : (
             <GoogleSigninButton onPress={handleGoogleSignIn} size={GoogleSigninButton.Size.Wide} color={GoogleSigninButton.Color.Dark} disabled={isGoogleSigninInProgress} />
           )}
+
+          {/* <Button mode="contained" onPress={handleDebugLogin}>
+            Debug Login
+          </Button> */}
         </Card.Content>
       </Card>
     </ScrollView>
@@ -259,10 +267,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center", // vertical centering
     alignItems: "center", // horizontal centering
-    paddingTop: 90,
+    paddingTop: 30,
   },
   header: {
     alignItems: "center",
+  },
+  logo: {
+    width: 200,
+    height: 200,
   },
   title: {
     fontSize: 28,
