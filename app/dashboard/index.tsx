@@ -1,90 +1,46 @@
+import { Slider } from "@miblanchard/react-native-slider";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Appbar, Button, Card, Chip, FAB, SegmentedButtons, Text, useTheme } from "react-native-paper";
+import * as SecureStore from "expo-secure-store";
+import React, { useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Appbar, Button, Card, FAB, Menu, SegmentedButtons, Text, useTheme } from "react-native-paper";
 
 export default function TasksScreen() {
   const theme = useTheme();
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
-  const [userRatings, setUserRatings] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState("myTasks");
-  const [fabOpen, setFabOpen] = useState(false);
+  const [taskFilter, setTaskFilter] = useState("active");
+  const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
+  const [assignedTasks, setAssignedTasks] = useState<any[]>([]);
+  const [unassignedTasks, setUnassignedTasks] = useState<any[]>([]);
+  const [isSubmittingRatings, setIsSubmittingRatings] = useState(false);
+  const [ratingDrafts, setRatingDrafts] = useState<Record<string, number>>({});
+  const [ratingEditorsOpen, setRatingEditorsOpen] = useState<Record<string, boolean>>({});
 
-  const postedTasks = [
-    {
-      id: "p1",
-      title: "Design mobile app wireframes",
-      description: "Create wireframes for new mobile banking app features",
-      assignedDate: "2026-02-26",
-      dueDate: "2026-03-08",
-      pointsWorth: 20,
-      skillsRequired: ["UI/UX Design", "Figma"],
-    },
-    {
-      id: "p2",
-      title: "Database optimization",
-      description: "Optimize SQL queries and improve database performance",
-      assignedDate: "2026-02-27",
-      dueDate: "2026-03-12",
-      pointsWorth: 15,
-      skillsRequired: ["SQL", "Database Management"],
-    },
-    {
-      id: "p3",
-      title: "API documentation update",
-      description: "Update REST API documentation with new endpoints",
-      assignedDate: "2026-02-28",
-      dueDate: "2026-03-10",
-      pointsWorth: 8,
-      skillsRequired: ["Technical Writing", "API Design"],
-    },
-    {
-      id: "p4",
-      title: "Frontend performance testing",
-      description: "Conduct performance tests and identify bottlenecks",
-      assignedDate: "2026-03-01",
-      dueDate: "2026-03-15",
-      pointsWorth: 12,
-      skillsRequired: ["Performance Testing", "JavaScript"],
-    },
-  ];
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  const assignedTasks = [
-    {
-      id: "1",
-      title: "Design new login flow",
-      description: "Create wireframes and mockups for the updated authentication process",
-      priority: "High",
-      status: "In Progress",
-      team: "Design Team",
-      dueDate: "2026-03-05",
-      assignedBy: "Sarah Johnson",
-    },
-    {
-      id: "2",
-      title: "Implement user authentication API",
-      description: "Build secure login and registration endpoints with JWT tokens",
-      priority: "High",
-      status: "Done",
-      team: "Development Team",
-      dueDate: "2026-03-10",
-      assignedBy: "Mike Chen",
-    }
-  ];
+  useEffect(() => {
+    const fetchTasks = async () => {
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
+      const headers = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "High":
-        return "#f44336";
-      case "Medium":
-        return "#ff9800";
-      case "Low":
-        return "#4caf50";
-      default:
-        return theme.colors.primary;
-    }
-  };
+      const [myTasksRes, teamTasksRes] = await Promise.all([fetch(`${apiUrl}/api/Task/myTasks`, { method: "GET", headers }), fetch(`${apiUrl}/api/Task/unassignedTasks`, { method: "GET", headers })]);
+
+      if (myTasksRes.ok) {
+        setAssignedTasks(await myTasksRes.json());
+      }
+      if (teamTasksRes.ok) {
+        setUnassignedTasks(await teamTasksRes.json());
+      }
+    };
+
+    void fetchTasks();
+  }, [apiUrl]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -108,26 +64,197 @@ export default function TasksScreen() {
     }));
   };
 
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const formatAssignedNames = (assignedAccounts?: { name?: string | null }[]) => {
+    if (!Array.isArray(assignedAccounts) || assignedAccounts.length === 0) return "No assignees";
+
+    const names = assignedAccounts.map((account) => account?.name?.trim()).filter((name): name is string => Boolean(name));
+
+    return names.length > 0 ? names.join(", ") : "No assignees";
+  };
+
+  const formatPreferenceRating = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return "Not rated";
+    return `${value.toFixed(1)}/10`;
+  };
+
+  const normalizePreferenceRating = (value?: number | null) => {
+    if (typeof value !== "number" || Number.isNaN(value)) return null;
+    return Math.max(1, Math.min(10, Math.round(value)));
+  };
+
+  const getRatingColor = (rating: number) => {
+    if (rating <= 3) return "#f44336";
+    if (rating <= 6) return "#ff9800";
+    return "#4caf50";
+  };
+
+  const getDisplayedRating = (task: any) => {
+    const draftValue = ratingDrafts[task.id];
+    if (typeof draftValue === "number") return draftValue;
+
+    const currentValue = normalizePreferenceRating(task.userPreferenceRating);
+    return currentValue ?? 5;
+  };
+
+  const hasDescription = (value?: string | null) => typeof value === "string" && value.trim().length > 0;
+
   const handleTaskCompletion = (taskId: string) => {
-    // Here you would typically update the task status in your backend
-    console.log(`Marking task ${taskId} as completed`);
-    // For demo purposes, we could update local state
-    // In a real app, this would trigger an API call
+    Alert.alert("Mark task as done?", "This task will be moved to completed.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Mark Done",
+        onPress: () => {
+          const updateTask = async () => {
+            const token = await SecureStore.getItemAsync("JWT_TOKEN");
+            const headers = {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            };
+
+            const response = await fetch(`${apiUrl}/api/Task/${taskId}`, {
+              method: "PUT",
+              headers,
+              body: JSON.stringify({ isCompleted: true }),
+            });
+
+            if (!response.ok) {
+              Alert.alert("Update failed", "Could not mark task as done. Please try again.");
+              return;
+            }
+
+            setAssignedTasks((prev) => prev.map((task) => (task.id === taskId ? { ...task, isCompleted: true, status: "Done" } : task)));
+          };
+
+          void updateTask();
+        },
+      },
+    ]);
   };
 
   // Sort posted tasks by newest first (assignedDate descending)
-  const sortedPostedTasks = [...postedTasks].sort((a, b) => new Date(b.assignedDate).getTime() - new Date(a.assignedDate).getTime());
+  const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => new Date(b.autoAssignAt).getTime() - new Date(a.autoAssignAt).getTime());
 
   const tabOptions = [
     { value: "myTasks", label: "My Tasks" },
     { value: "availableTasks", label: "Available Tasks" },
   ];
 
+  const taskFilterLabelMap: Record<string, string> = {
+    all: "All",
+    active: "Active",
+    completed: "Completed",
+  };
+
+  const selectTaskFilter = (value: string) => {
+    setTaskFilter(value);
+    setIsFilterMenuVisible(false);
+  };
+
+  const filteredAssignedTasks = assignedTasks.filter((task) => {
+    if (taskFilter === "active") return task.isCompleted !== true;
+    if (taskFilter === "completed") return task.isCompleted === true;
+    return true;
+  });
+
+  const hasPendingRatingChanges = unassignedTasks.some((task) => {
+    const draftValue = ratingDrafts[task.id];
+    if (typeof draftValue !== "number") return false;
+    return normalizePreferenceRating(task.userPreferenceRating) !== draftValue;
+  });
+
+  const toggleRatingEditor = (task: any) => {
+    setRatingEditorsOpen((prev) => {
+      const willOpen = !prev[task.id];
+      if (willOpen && typeof ratingDrafts[task.id] !== "number") {
+        const currentRating = normalizePreferenceRating(task.userPreferenceRating) ?? 5;
+        setRatingDrafts((draftPrev) => ({ ...draftPrev, [task.id]: currentRating }));
+      }
+      return { ...prev, [task.id]: willOpen };
+    });
+  };
+
+  const handleRatingChange = (taskId: string, sliderValue: number) => {
+    const nextValue = Math.max(1, Math.min(10, Math.round(sliderValue)));
+    setRatingDrafts((prev) => ({
+      ...prev,
+      [taskId]: nextValue,
+    }));
+  };
+
+  const submitRatingChanges = async () => {
+    const changedTasks = unassignedTasks.filter((task) => {
+      const draftValue = ratingDrafts[task.id];
+      if (typeof draftValue !== "number") return false;
+      return normalizePreferenceRating(task.userPreferenceRating) !== draftValue;
+    });
+
+    if (changedTasks.length === 0) {
+      Alert.alert("No changes", "Adjust at least one rating before submitting.");
+      return;
+    }
+
+    try {
+      setIsSubmittingRatings(true);
+
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
+      const headers = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      await Promise.all(
+        changedTasks.map(async (task) => {
+          const response = await fetch(`${apiUrl}/api/TaskPreference/${task.id}`, {
+            method: "PUT",
+            headers,
+            body: JSON.stringify({ score: ratingDrafts[task.id] }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Could not update ${task.title ?? "a task"}.`);
+          }
+        }),
+      );
+
+      setUnassignedTasks((prev) =>
+        prev.map((task) => {
+          const draftValue = ratingDrafts[task.id];
+          if (typeof draftValue !== "number") return task;
+          if (normalizePreferenceRating(task.userPreferenceRating) === draftValue) return task;
+          return {
+            ...task,
+            userPreferenceRating: draftValue,
+          };
+        }),
+      );
+
+      Alert.alert("Saved", `Updated ${changedTasks.length} rating${changedTasks.length !== 1 ? "s" : ""}.`);
+    } catch (error) {
+      Alert.alert("Save failed", error instanceof Error ? error.message : "Unable to submit rating changes.");
+    } finally {
+      setIsSubmittingRatings(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Appbar.Header>
-        <Appbar.Content title="Dashboard" />
-        <Appbar.Action icon="account-group" onPress={() => router.push("/dashboard/teams")} />
+      <Appbar.Header style={{ marginLeft: "auto"}}>
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
         <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
       </Appbar.Header>
@@ -144,65 +271,63 @@ export default function TasksScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text variant="bodyMedium" style={styles.sectionSubtitle}>
-                  {assignedTasks.length} task{assignedTasks.length !== 1 ? "s" : ""} assigned to you
+                  {filteredAssignedTasks.length} task{filteredAssignedTasks.length !== 1 ? "s" : ""} shown
                 </Text>
+                <Menu
+                  visible={isFilterMenuVisible}
+                  onDismiss={() => setIsFilterMenuVisible(false)}
+                  anchor={
+                    <Button mode="outlined" icon="filter-variant" compact onPress={() => setIsFilterMenuVisible(true)}>
+                      {taskFilterLabelMap[taskFilter]}
+                    </Button>
+                  }
+                >
+                  <Menu.Item title="All" onPress={() => selectTaskFilter("all")} />
+                  <Menu.Item title="Active" onPress={() => selectTaskFilter("active")} />
+                  <Menu.Item title="Completed" onPress={() => selectTaskFilter("completed")} />
+                </Menu>
               </View>
 
-              {assignedTasks.map((task) => (
+              {filteredAssignedTasks.map((task) => (
                 <Card key={task.id} style={styles.taskCard} mode="outlined">
                   <Card.Content>
                     <View style={styles.taskHeader}>
                       <Text variant="titleMedium" style={styles.taskTitle}>
                         {task.title}
                       </Text>
-                      <View style={styles.badgeContainer}>
-                        <Chip style={[styles.priorityChip, { backgroundColor: getPriorityColor(task.priority) + "20" }]} textStyle={{ color: getPriorityColor(task.priority), fontSize: 10 }} compact>
-                          {task.priority}
-                        </Chip>
-                      </View>
                     </View>
 
-                    <TouchableOpacity onPress={() => toggleDescription(task.id)}>
-                      <Text variant="bodyMedium" style={styles.taskDescription} numberOfLines={expandedDescriptions[task.id] ? undefined : 2}>
-                        {task.description}
-                      </Text>
-                    </TouchableOpacity>
+                    {hasDescription(task.description) ? (
+                      <TouchableOpacity onPress={() => toggleDescription(task.id)}>
+                        <Text variant="bodyMedium" style={styles.taskDescription} numberOfLines={expandedDescriptions[task.id] ? undefined : 2}>
+                          {task.description}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
 
                     <View style={styles.taskMeta}>
                       <View style={styles.metaRow}>
                         <MaterialDesignIcons name="calendar-clock" size={14} color={theme.colors.onSurfaceVariant} />
                         <Text variant="bodySmall" style={styles.metaText}>
-                          {task.dueDate}
+                          {formatDateTime(task.dueAt)}
                         </Text>
                       </View>
                       <View style={styles.metaRow}>
-                        <MaterialDesignIcons name="account" size={14} color={theme.colors.onSurfaceVariant} />
+                        <MaterialDesignIcons name="account-group" size={14} color={theme.colors.onSurfaceVariant} />
                         <Text variant="bodySmall" style={styles.metaText}>
-                          {task.assignedBy}
+                          Assigned To: {formatAssignedNames(task.assignedAccounts)}
                         </Text>
                       </View>
                     </View>
 
                     <View style={styles.statusContainer}>
-                      {task.status === "Done" ? (
-                        <Button 
-                          mode="contained" 
-                          style={[styles.statusButton, { backgroundColor: getStatusColor(task.status) }]} 
-                          contentStyle={{ height: 32 }} 
-                          labelStyle={{ color: "white", fontSize: 11 }}
-                          disabled
-                        >
+                      {task.isCompleted === true ? (
+                        <Button mode="contained" style={[styles.statusButton, { backgroundColor: getStatusColor(task.status) }]} labelStyle={{ color: "white", fontSize: 15 }} disabled>
                           ✓
                         </Button>
                       ) : (
-                        <Button 
-                          mode="outlined" 
-                          style={styles.statusButton} 
-                          contentStyle={{ height: 32 }} 
-                          labelStyle={{ color: getStatusColor(task.status), fontSize: 11 }}
-                          onPress={() => handleTaskCompletion(task.id)}
-                        >
-                          Change Status
+                        <Button mode="outlined" style={styles.statusButton} labelStyle={{ color: getStatusColor(task.status), fontSize: 12 }} onPress={() => handleTaskCompletion(task.id)}>
+                          Mark Done
                         </Button>
                       )}
                     </View>
@@ -219,11 +344,11 @@ export default function TasksScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text variant="bodyMedium" style={styles.sectionSubtitle}>
-                  {sortedPostedTasks.length} tasks available to join
+                  {sortedUnassignedTasks.length} tasks available to join
                 </Text>
               </View>
 
-              {sortedPostedTasks.map((task) => (
+              {sortedUnassignedTasks.map((task) => (
                 <Card key={task.id} style={styles.postedTaskCard} mode="outlined">
                   <Card.Content>
                     <View style={styles.taskHeader}>
@@ -232,77 +357,93 @@ export default function TasksScreen() {
                       </Text>
                       <View style={styles.taskHeaderRight}>
                         <Text variant="bodySmall" style={styles.pointsWorth}>
-                          {task.pointsWorth} points
+                          {task.points} points
                         </Text>
-                        {!userRatings[task.id] && <MaterialDesignIcons name="star" size={20} color="#ff9800" style={styles.newTaskStar} />}
                       </View>
                     </View>
 
-                    <TouchableOpacity onPress={() => toggleDescription(task.id)}>
-                      <Text variant="bodyMedium" style={styles.taskDescription} numberOfLines={expandedDescriptions[task.id] ? undefined : 2}>
-                        {task.description}
-                      </Text>
-                    </TouchableOpacity>
+                    {hasDescription(task.description) ? (
+                      <TouchableOpacity onPress={() => toggleDescription(task.id)}>
+                        <Text variant="bodyMedium" style={styles.taskDescription} numberOfLines={expandedDescriptions[task.id] ? undefined : 2}>
+                          {task.description}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
 
                     <View style={styles.taskDates}>
                       <View style={styles.dateRow}>
-                        <MaterialDesignIcons name="calendar-plus" size={14} color={theme.colors.onSurfaceVariant} />
-                        <Text variant="bodySmall" style={styles.dateText}>
-                          Posted: {task.assignedDate}
-                        </Text>
-                      </View>
-                      <View style={styles.dateRow}>
                         <MaterialDesignIcons name="calendar-clock" size={14} color={theme.colors.onSurfaceVariant} />
                         <Text variant="bodySmall" style={styles.dateText}>
-                          Due: {task.dueDate}
+                          Due: {formatDateTime(task.dueAt)}
+                        </Text>
+                      </View>
+                      <View style={styles.metaRow}>
+                        <MaterialDesignIcons name="clock-outline" size={14} color={theme.colors.onSurfaceVariant} />
+                        <Text variant="bodySmall" style={styles.metaText}>
+                          Auto-assign: {formatDateTime(task.autoAssignedAt ?? task.autoAssignAt)}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={styles.skillsContainer}>
-                      {task.skillsRequired.map((skill, index) => (
-                        <Chip key={index} style={styles.skillChip} compact>
-                          {skill}
-                        </Chip>
-                      ))}
+                    <View style={styles.unassignedActionRow}>
+                      <View style={styles.ratingPill}>
+                        <Text variant="bodyMedium" style={styles.ratingPillText}>
+                          Preference: {formatPreferenceRating(ratingDrafts[task.id] ?? task.userPreferenceRating)}
+                        </Text>
+                      </View>
+                      <Button mode="outlined" style={styles.statusButton} labelStyle={{ fontSize: 12 }} onPress={() => toggleRatingEditor(task)}>
+                        {ratingEditorsOpen[task.id] ? "Hide" : "Rate"}
+                      </Button>
                     </View>
+
+                    {ratingEditorsOpen[task.id] ? (
+                      <View style={styles.inlineScoringContainer}>
+                        <View style={styles.inlineScoringHeader}>
+                          <Text variant="bodySmall" style={styles.inlineScoringLabel}>
+                            Adjust Preference
+                          </Text>
+                          <View style={styles.currentRatingValueRow}>
+                            <MaterialDesignIcons name="star" size={15} color={getRatingColor(getDisplayedRating(task))} />
+                            <Text variant="titleMedium" style={[styles.inlineScoringValue, { color: getRatingColor(getDisplayedRating(task)) }]}>
+                              Current: {getDisplayedRating(task)}/10
+                            </Text>
+                          </View>
+                        </View>
+                        <Slider
+                          containerStyle={styles.inlineSlider}
+                          value={getDisplayedRating(task)}
+                          onValueChange={(value) => handleRatingChange(task.id, value[0])}
+                          minimumValue={1}
+                          maximumValue={10}
+                          step={1}
+                          thumbStyle={{ backgroundColor: getRatingColor(getDisplayedRating(task)) }}
+                          trackStyle={{ backgroundColor: theme.colors.surfaceVariant }}
+                        />
+                        <View style={styles.inlineScoringEnds}>
+                          <Text variant="bodySmall" style={styles.inlineScoringEndText}>
+                            1 Low
+                          </Text>
+                          <Text variant="bodySmall" style={styles.inlineScoringEndText}>
+                            10 High
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
                   </Card.Content>
                 </Card>
               ))}
 
-              <Button mode="outlined" onPress={() => router.push("/dashboard/scoring")} style={styles.scoreButton} contentStyle={styles.scoreButtonContent}>
-                Score Task Preferences
+              <Button mode="contained" onPress={() => void submitRatingChanges()} style={styles.submitChangesButton} contentStyle={styles.submitChangesButtonContent} disabled={!hasPendingRatingChanges || isSubmittingRatings} loading={isSubmittingRatings}>
+                Submit All Changes
               </Button>
             </View>
           </ScrollView>
         )}
       </View>
 
-      {/* Multi-Action FAB */}
+      {/* Create new task */}
       <View style={styles.fabContainer}>
-        {fabOpen && (
-          <>
-            <FAB
-              icon="calendar"
-              size="small"
-              style={[styles.fabOption, styles.fabCalendar]}
-              onPress={() => {
-                console.log("Open calendar");
-                setFabOpen(false);
-              }}
-            />
-            <FAB
-              icon="plus"
-              size="small"
-              style={[styles.fabOption, styles.fabAdd]}
-              onPress={() => {
-                console.log("Add new task");
-                setFabOpen(false);
-              }}
-            />
-          </>
-        )}
-        <FAB icon={fabOpen ? "close" : "menu"} style={styles.fabMain} onPress={() => setFabOpen(!fabOpen)} />
+        <FAB icon={"plus"} style={styles.fabMain} onPress={() => router.push("/dashboard/newTask")} />
       </View>
     </View>
   );
@@ -330,6 +471,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 4,
     paddingBottom: 12,
   },
@@ -395,6 +539,19 @@ const styles = StyleSheet.create({
   newTaskStar: {
     marginLeft: 4,
   },
+  ratingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 152, 0, 0.14)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  ratingPillText: {
+    color: "#bf6d00",
+    fontWeight: "600",
+  },
   taskTitle: {
     flex: 1,
     fontWeight: "600",
@@ -427,9 +584,58 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
   },
+  unassignedActionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
+  inlineScoringContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(0, 0, 0, 0.12)",
+  },
+  inlineScoringHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  inlineScoringLabel: {
+    opacity: 0.75,
+  },
+  inlineScoringValue: {
+    fontWeight: "700",
+  },
+  currentRatingValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  inlineSlider: {
+    height: 38,
+  },
+  inlineScoringEnds: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  inlineScoringEndText: {
+    opacity: 0.65,
+  },
   statusButton: {
     marginRight: 4,
     borderRadius: 16,
+  },
+  submitChangesButton: {
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  submitChangesButtonContent: {
+    height: 46,
   },
   fabContainer: {
     position: "absolute",
