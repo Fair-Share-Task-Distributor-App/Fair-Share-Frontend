@@ -104,6 +104,14 @@ export default function TasksScreen() {
     return "#4caf50";
   };
 
+  const getColorWithAlpha = (hexColor: string, alpha: number) => {
+    const cleanHex = hexColor.replace("#", "");
+    const r = Number.parseInt(cleanHex.slice(0, 2), 16);
+    const g = Number.parseInt(cleanHex.slice(2, 4), 16);
+    const b = Number.parseInt(cleanHex.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   const getDisplayedRating = (task: any) => {
     const draftValue = ratingDrafts[task.id];
     if (typeof draftValue === "number") return draftValue;
@@ -343,7 +351,7 @@ export default function TasksScreen() {
 
         {/* Available Tasks Tab */}
         {activeTab === "availableTasks" && (
-          <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.tabContent} contentContainerStyle={styles.availableTasksContent} showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text variant="bodyMedium" style={styles.sectionSubtitle}>
@@ -354,93 +362,101 @@ export default function TasksScreen() {
               {sortedUnassignedTasks.map((task) => (
                 <Card key={task.id} style={styles.postedTaskCard} mode="outlined">
                   <Card.Content>
-                    <View style={styles.taskHeader}>
-                      <Text variant="titleMedium" style={styles.taskTitle}>
-                        {task.title}
-                      </Text>
-                      <View style={styles.taskHeaderRight}>
-                        <Text variant="bodySmall" style={styles.pointsWorth}>
-                          {task.points} points
-                        </Text>
-                      </View>
-                    </View>
+                    {/** Keep the preference pill highlight in the same color family as the current slider value. */}
+                    {(() => {
+                      const displayedRating = getDisplayedRating(task);
+                      const ratingColor = getRatingColor(displayedRating);
 
-                    {hasDescription(task.description) ? (
-                      <TouchableOpacity onPress={() => toggleDescription(task.id)}>
-                        <Text variant="bodyMedium" style={styles.taskDescription} numberOfLines={expandedDescriptions[task.id] ? undefined : 2}>
-                          {task.description}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-
-                    <View style={styles.taskDates}>
-                      <View style={styles.dateRow}>
-                        <MaterialDesignIcons name="calendar-clock" size={14} color={theme.colors.onSurfaceVariant} />
-                        <Text variant="bodySmall" style={styles.dateText}>
-                          Due: {formatDateTime(task.dueAt)}
-                        </Text>
-                      </View>
-                      <View style={styles.metaRow}>
-                        <MaterialDesignIcons name="clock-outline" size={14} color={theme.colors.onSurfaceVariant} />
-                        <Text variant="bodySmall" style={styles.metaText}>
-                          Auto-assign: {formatDateTime(task.autoAssignedAt ?? task.autoAssignAt)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.unassignedActionRow}>
-                      <View style={styles.ratingPill}>
-                        <Text variant="bodyMedium" style={styles.ratingPillText}>
-                          Preference: {formatPreferenceRating(ratingDrafts[task.id] ?? task.userPreferenceRating)}
-                        </Text>
-                      </View>
-                      <Button mode="outlined" style={styles.statusButton} labelStyle={{ fontSize: 12 }} onPress={() => toggleRatingEditor(task)}>
-                        {ratingEditorsOpen[task.id] ? "Hide" : "Rate"}
-                      </Button>
-                    </View>
-
-                    {ratingEditorsOpen[task.id] ? (
-                      <View style={styles.inlineScoringContainer}>
-                        <View style={styles.inlineScoringHeader}>
-                          <Text variant="bodySmall" style={styles.inlineScoringLabel}>
-                            Adjust Preference
-                          </Text>
-                          <View style={styles.currentRatingValueRow}>
-                            <MaterialDesignIcons name="star" size={15} color={getRatingColor(getDisplayedRating(task))} />
-                            <Text variant="titleMedium" style={[styles.inlineScoringValue, { color: getRatingColor(getDisplayedRating(task)) }]}>
-                              Current: {getDisplayedRating(task)}/10
+                      return (
+                        <>
+                          <View style={styles.taskHeader}>
+                            <Text variant="titleMedium" style={styles.taskTitle}>
+                              {task.title}
                             </Text>
+                            <View style={styles.taskHeaderRight}>
+                              <Text variant="bodySmall" style={styles.pointsWorth}>
+                                {task.points} points
+                              </Text>
+                            </View>
                           </View>
-                        </View>
-                        <Slider
-                          containerStyle={styles.inlineSlider}
-                          value={getDisplayedRating(task)}
-                          onValueChange={(value) => handleRatingChange(task.id, value[0])}
-                          minimumValue={1}
-                          maximumValue={10}
-                          step={1}
-                          thumbStyle={{ backgroundColor: getRatingColor(getDisplayedRating(task)) }}
-                          trackStyle={{ backgroundColor: theme.colors.surfaceVariant }}
-                        />
-                        <View style={styles.inlineScoringEnds}>
-                          <Text variant="bodySmall" style={styles.inlineScoringEndText}>
-                            1 Low
-                          </Text>
-                          <Text variant="bodySmall" style={styles.inlineScoringEndText}>
-                            10 High
-                          </Text>
-                        </View>
-                      </View>
-                    ) : null}
+
+                          {hasDescription(task.description) ? (
+                            <TouchableOpacity onPress={() => toggleDescription(task.id)}>
+                              <Text variant="bodyMedium" style={styles.taskDescription} numberOfLines={expandedDescriptions[task.id] ? undefined : 2}>
+                                {task.description}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+
+                          <View style={styles.taskDates}>
+                            <View style={styles.dateRow}>
+                              <MaterialDesignIcons name="calendar-clock" size={14} color={theme.colors.onSurfaceVariant} />
+                              <Text variant="bodySmall" style={styles.dateText}>
+                                Due: {formatDateTime(task.dueAt)}
+                              </Text>
+                            </View>
+                            <View style={styles.metaRow}>
+                              <MaterialDesignIcons name="clock-outline" size={14} color={theme.colors.onSurfaceVariant} />
+                              <Text variant="bodySmall" style={styles.metaText}>
+                                Auto-assign: {formatDateTime(task.autoAssignedAt ?? task.autoAssignAt)}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.unassignedActionRow}>
+                            <View style={[styles.ratingPill, { backgroundColor: getColorWithAlpha(ratingColor, 0.16), borderColor: ratingColor }]}>
+                              <Text variant="bodyMedium" style={[styles.ratingPillText, { color: ratingColor }]}>
+                                Preference: {formatPreferenceRating(displayedRating)}
+                              </Text>
+                            </View>
+                            <Button mode="outlined" style={styles.statusButton} labelStyle={{ fontSize: 12 }} onPress={() => toggleRatingEditor(task)}>
+                              {ratingEditorsOpen[task.id] ? "Hide" : "Rate"}
+                            </Button>
+                          </View>
+
+                          {ratingEditorsOpen[task.id] ? (
+                            <View style={styles.inlineScoringContainer}>
+                              <View style={styles.inlineScoringHeader}>
+                                <Text variant="bodySmall" style={styles.inlineScoringLabel}>
+                                  Adjust Preference
+                                </Text>
+                              </View>
+                              <Slider
+                                containerStyle={styles.inlineSlider}
+                                value={displayedRating}
+                                onValueChange={(value) => handleRatingChange(task.id, value[0])}
+                                minimumValue={1}
+                                maximumValue={10}
+                                step={1}
+                                thumbStyle={{ backgroundColor: ratingColor }}
+                                trackStyle={{ backgroundColor: theme.colors.surfaceVariant }}
+                              />
+                              <View style={styles.inlineScoringEnds}>
+                                <Text variant="bodySmall" style={styles.inlineScoringEndText}>
+                                  1 Low
+                                </Text>
+                                <Text variant="bodySmall" style={styles.inlineScoringEndText}>
+                                  10 High
+                                </Text>
+                              </View>
+                            </View>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </Card.Content>
                 </Card>
               ))}
-
-              <Button mode="contained" onPress={() => void submitRatingChanges()} style={styles.submitChangesButton} contentStyle={styles.submitChangesButtonContent} disabled={!hasPendingRatingChanges || isSubmittingRatings} loading={isSubmittingRatings}>
-                Submit All Changes
-              </Button>
             </View>
           </ScrollView>
+        )}
+
+        {activeTab === "availableTasks" && (
+          <View style={styles.submitChangesDock}>
+            <Button mode="contained" onPress={() => void submitRatingChanges()} style={styles.submitChangesButton} contentStyle={styles.submitChangesButtonContent} disabled={!hasPendingRatingChanges || isSubmittingRatings} loading={isSubmittingRatings}>
+              Submit All Changes
+            </Button>
+          </View>
         )}
       </View>
 
@@ -468,6 +484,9 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
+  },
+  availableTasksContent: {
+    paddingBottom: 96,
   },
   section: {
     paddingHorizontal: 16,
@@ -546,13 +565,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255, 152, 0, 0.14)",
+    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
   },
   ratingPillText: {
-    color: "#bf6d00",
     fontWeight: "600",
   },
   taskTitle: {
@@ -634,11 +652,16 @@ const styles = StyleSheet.create({
   },
   submitChangesButton: {
     borderRadius: 12,
-    marginTop: 8,
-    marginBottom: 20,
   },
   submitChangesButtonContent: {
     height: 46,
+  },
+  submitChangesDock: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 16,
+    zIndex: 20,
   },
   fabContainer: {
     position: "absolute",
@@ -648,7 +671,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   fabMain: {
-    backgroundColor: "#6200ee",
+    backgroundColor: "#00caee",
   },
   fabOption: {
     marginBottom: 12,
