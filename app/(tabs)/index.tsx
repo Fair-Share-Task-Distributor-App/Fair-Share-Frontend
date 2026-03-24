@@ -21,6 +21,15 @@ export default function LoginScreen() {
   const router = useRouter();
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
+  const routeAfterAuth = (isNewUser?: boolean) => {
+    if (isNewUser) {
+      router.push("/newUser" as never);
+      return;
+    }
+
+    router.push("/dashboard");
+  };
+
   // Configure Google Sign-In
   React.useEffect(() => {
     GoogleSignin.configure({
@@ -45,12 +54,12 @@ export default function LoginScreen() {
           body: JSON.stringify({ idToken }),
         });
 
-        const { token } = await authResponse.json();
+        const { token, isNewUser } = await authResponse.json();
 
         // Store token securely
         await SecureStore.setItemAsync("JWT_TOKEN", token);
 
-        router.push("../dashboard");
+        routeAfterAuth(isNewUser);
       }
     } catch (error: any) {
       if (isErrorWithCode(error)) {
@@ -131,9 +140,9 @@ export default function LoginScreen() {
           body: JSON.stringify({ email, password }),
         });
       }
-      const { token } = await authResponse.json();
+      const { token, isNewUser } = await authResponse.json();
       await SecureStore.setItemAsync("JWT_TOKEN", token);
-      router.push("../dashboard");
+      routeAfterAuth(isNewUser);
     } catch (error) {
       console.error("Authentication error:", error);
       Alert.alert("Authentication failed", "Please check your credentials and try again.");
