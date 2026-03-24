@@ -4,9 +4,13 @@ import React from "react";
 import { SafeAreaView, StyleSheet, View } from "react-native";
 import { Button, Card, Text, TextInput } from "react-native-paper";
 
+import { useUserStore } from "@/stores/user-store";
+
 export default function NewUserIntroScreen() {
   const router = useRouter();
-  const [teamName, setTeamName] = React.useState("");
+  const storedTeamName = useUserStore((state) => state.teamName);
+  const setTeamNameInStore = useUserStore((state) => state.setTeamName);
+  const [teamName, setTeamName] = React.useState(storedTeamName);
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
@@ -29,6 +33,9 @@ export default function NewUserIntroScreen() {
       return;
     }
 
+    const responseData = (await response.json().catch(() => null)) as { name?: string; teamName?: string } | null;
+    setTeamNameInStore(responseData?.name ?? teamName);
+
     router.push("/dashboard");
   };
 
@@ -50,7 +57,16 @@ export default function NewUserIntroScreen() {
             <Text variant="bodyMedium" style={styles.optionDescription}>
               Start a new group and invite friends or family to collaborate.
             </Text>
-            <TextInput label="Team name" value={teamName} onChangeText={setTeamName} mode="outlined" style={styles.teamNameInput} />
+            <TextInput
+              label="Team name"
+              value={teamName}
+              onChangeText={(text) => {
+                setTeamName(text);
+                setTeamNameInStore(text);
+              }}
+              mode="outlined"
+              style={styles.teamNameInput}
+            />
             <Button mode="contained" onPress={handleCreateGroup} style={styles.optionButton} disabled={!teamName.trim()}>
               Create Group
             </Button>

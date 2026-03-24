@@ -5,6 +5,16 @@ import React, { useState } from "react";
 import { Alert, Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Card, Divider, Text, TextInput } from "react-native-paper";
 
+import { useUserStore } from "@/stores/user-store";
+
+type AuthResponseData = {
+  token: string;
+  isNewUser: boolean;
+  name: string;
+  email: string;
+  teamName?: string | null;
+};
+
 export default function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState("");
@@ -20,6 +30,7 @@ export default function LoginScreen() {
 
   const router = useRouter();
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const setUserProfile = useUserStore((state) => state.setUserProfile);
 
   const routeAfterAuth = (isNewUser?: boolean) => {
     if (isNewUser) {
@@ -54,10 +65,16 @@ export default function LoginScreen() {
           body: JSON.stringify({ idToken }),
         });
 
-        const { token, isNewUser } = await authResponse.json();
+        const authData = (await authResponse.json()) as AuthResponseData;
+        const { token, isNewUser } = authData;
 
         // Store token securely
         await SecureStore.setItemAsync("JWT_TOKEN", token);
+        setUserProfile({
+          name: authData.name,
+          email: authData.email,
+          teamName: authData.teamName ?? undefined,
+        });
 
         routeAfterAuth(isNewUser);
       }
@@ -140,8 +157,14 @@ export default function LoginScreen() {
           body: JSON.stringify({ email, password }),
         });
       }
-      const { token, isNewUser } = await authResponse.json();
+      const authData = (await authResponse.json()) as AuthResponseData;
+      const { token, isNewUser } = authData;
       await SecureStore.setItemAsync("JWT_TOKEN", token);
+      setUserProfile({
+        name: authData.name,
+        email: authData.email,
+        teamName: authData.teamName ?? undefined,
+      });
       routeAfterAuth(isNewUser);
     } catch (error) {
       console.error("Authentication error:", error);

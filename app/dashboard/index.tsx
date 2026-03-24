@@ -1,3 +1,4 @@
+import { useUserStore } from "@/stores/user-store";
 import { Slider } from "@miblanchard/react-native-slider";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { router } from "expo-router";
@@ -17,6 +18,7 @@ export default function TasksScreen() {
   const [isSubmittingRatings, setIsSubmittingRatings] = useState(false);
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, number>>({});
   const [ratingEditorsOpen, setRatingEditorsOpen] = useState<Record<string, boolean>>({});
+  const teamName = useUserStore((state) => state.teamName);
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
@@ -254,7 +256,8 @@ export default function TasksScreen() {
 
   return (
     <View style={styles.container}>
-      <Appbar.Header style={{ marginLeft: "auto"}}>
+      <Appbar.Header style={{ marginLeft: "auto" }}>
+        <Appbar.Content title={teamName} />
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
         <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
       </Appbar.Header>
