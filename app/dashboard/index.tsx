@@ -574,7 +574,7 @@ export default function TasksScreen() {
 
       {/* Create new task */}
       <View style={[styles.fabContainer, activeTab === "availableTasks" && styles.fabContainerRaised]}>
-        <FAB icon={"plus"} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
+        <FAB icon={"plus"} color="#FFFFFF" customSize={64} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
       </View>
 
       <Portal>
@@ -619,6 +619,7 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f7f3f9",
   },
   content: {
     flex: 1,
