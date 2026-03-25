@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Appbar, Button, Card, FAB, Menu, SegmentedButtons, Text, useTheme } from "react-native-paper";
+import { Appbar, Button, Card, Dialog, FAB, Menu, Portal, SegmentedButtons, Text, TextInput, useTheme } from "react-native-paper";
 
 const cardTitleFontFamily = Platform.select({
   ios: "System",
@@ -30,6 +30,10 @@ export default function TasksScreen() {
   const [isSubmittingRatings, setIsSubmittingRatings] = useState(false);
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, number>>({});
   const [ratingEditorsOpen, setRatingEditorsOpen] = useState<Record<string, boolean>>({});
+  const [isInviteDialogVisible, setIsInviteDialogVisible] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmailError, setInviteEmailError] = useState("");
+  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
   const teamName = useUserStore((state) => state.teamName);
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -174,6 +178,62 @@ export default function TasksScreen() {
     ]);
   };
 
+  const openInviteDialog = () => {
+    setInviteEmail("");
+    setInviteEmailError("");
+    setIsInviteDialogVisible(true);
+  };
+
+  const closeInviteDialog = () => {
+    if (isSubmittingInvite) return;
+    setIsInviteDialogVisible(false);
+    setInviteEmailError("");
+  };
+
+  const submitInvite = async () => {
+    const trimmedEmail = inviteEmail.trim();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!trimmedEmail) {
+      setInviteEmailError("Email is required.");
+      return;
+    }
+
+    if (!emailPattern.test(trimmedEmail)) {
+      setInviteEmailError("Enter a valid email address.");
+      return;
+    }
+
+    try {
+      setIsSubmittingInvite(true);
+
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
+      const response = await fetch(`${apiUrl}/api/team/addMembers`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ Emails: [trimmedEmail] }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(errorText || "Unable to add this team member right now.");
+      }
+
+      setIsInviteDialogVisible(false);
+      setInviteEmail("");
+      setInviteEmailError("");
+      Alert.alert("Member added", `${trimmedEmail} has been added to ${teamName || "your team"}.`);
+    } catch (error) {
+      Alert.alert("Add failed", error instanceof Error ? error.message : "Unable to add this team member right now.");
+    } finally {
+      setIsSubmittingInvite(false);
+    }
+  };
+
   // Sort posted tasks by newest first (assignedDate descending)
   const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => new Date(b.autoAssignAt).getTime() - new Date(a.autoAssignAt).getTime());
 
@@ -284,6 +344,7 @@ export default function TasksScreen() {
     <View style={styles.container}>
       <Appbar.Header style={{ marginLeft: "auto" }}>
         <Appbar.Content title={teamName} titleStyle={styles.teamNameTitle} />
+        <Appbar.Action icon="account-plus" onPress={openInviteDialog} />
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
         <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
       </Appbar.Header>
@@ -371,7 +432,7 @@ export default function TasksScreen() {
                       No tasks yet
                     </Text>
                     <Text variant="bodyMedium" style={styles.emptyStateText}>
-                      You do not have tasks in this view. Try switching filters or check Available Tasks.
+                      You do not have tasks assigned currently. Try switching filters or check Available Tasks.
                     </Text>
                     <Button mode="outlined" onPress={() => setTaskFilter("all")} style={styles.emptyStateButton}>
                       Show All
@@ -515,6 +576,42 @@ export default function TasksScreen() {
       <View style={[styles.fabContainer, activeTab === "availableTasks" && styles.fabContainerRaised]}>
         <FAB icon={"plus"} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
       </View>
+
+      <Portal>
+        <Dialog visible={isInviteDialogVisible} onDismiss={closeInviteDialog}>
+          <Dialog.Title>Add Team Member</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.inviteDialogCopy}>
+              Enter the email address of the person you want to add.
+            </Text>
+            <TextInput
+              mode="outlined"
+              label="Email"
+              value={inviteEmail}
+              onChangeText={(text) => {
+                setInviteEmail(text);
+                if (inviteEmailError) {
+                  setInviteEmailError("");
+                }
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              error={Boolean(inviteEmailError)}
+            />
+            {inviteEmailError ? <Text style={styles.inviteDialogError}>{inviteEmailError}</Text> : null}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeInviteDialog} disabled={isSubmittingInvite}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={() => void submitInvite()} loading={isSubmittingInvite} disabled={isSubmittingInvite}>
+              Add
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -530,6 +627,15 @@ const styles = StyleSheet.create({
     fontSize: 25,
     fontWeight: "700",
     letterSpacing: 0.4,
+    marginRight: 8,
+  },
+  inviteDialogCopy: {
+    marginBottom: 12,
+    opacity: 0.8,
+  },
+  inviteDialogError: {
+    marginTop: 8,
+    color: "#B3261E",
   },
   tabContainer: {
     paddingHorizontal: 16,
