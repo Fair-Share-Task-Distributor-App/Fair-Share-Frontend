@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Fair Share",
-    "slug": "FairShareFrontend",
+    "name": "Task Distributor: Fair Share",
+    "slug": "task-distributor-fair-share",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Fair Share Logo.png",
+    "icon": "./assets/images/playstore-icon.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -17,8 +17,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/Fair Share Logo.png",
-        "monochromeImage": "./assets/images/Fair Share Logo-monochrome.png"
+        "foregroundImage": "./assets/images/playstore-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.fairshare",
@@ -44,7 +43,8 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true
@@ -52,7 +52,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b2e3026f-8e91-4bd1-a1b5-d0fb65e61fd0"
+        "projectId": "4ce6ec40-616c-4b4b-8d44-2cb60f1a2375"
       }
     },
     "owner": "thet_wai",

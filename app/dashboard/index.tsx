@@ -4,13 +4,25 @@ import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Appbar, Button, Card, FAB, Menu, SegmentedButtons, Text, useTheme } from "react-native-paper";
+import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Appbar, Button, Card, Dialog, FAB, Menu, Portal, SegmentedButtons, Text, TextInput, useTheme } from "react-native-paper";
+
+const cardTitleFontFamily = Platform.select({
+  ios: "System",
+  android: "sans-serif-medium",
+  default: "System",
+});
+
+const cardBodyFontFamily = Platform.select({
+  ios: "System",
+  android: "sans-serif",
+  default: "System",
+});
 
 export default function TasksScreen() {
   const theme = useTheme();
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
-  const [activeTab, setActiveTab] = useState("myTasks");
+  const [activeTab, setActiveTab] = useState("availableTasks");
   const [taskFilter, setTaskFilter] = useState("active");
   const [isFilterMenuVisible, setIsFilterMenuVisible] = useState(false);
   const [assignedTasks, setAssignedTasks] = useState<any[]>([]);
@@ -18,6 +30,10 @@ export default function TasksScreen() {
   const [isSubmittingRatings, setIsSubmittingRatings] = useState(false);
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, number>>({});
   const [ratingEditorsOpen, setRatingEditorsOpen] = useState<Record<string, boolean>>({});
+  const [isInviteDialogVisible, setIsInviteDialogVisible] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmailError, setInviteEmailError] = useState("");
+  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
   const teamName = useUserStore((state) => state.teamName);
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -90,7 +106,7 @@ export default function TasksScreen() {
 
   const formatPreferenceRating = (value?: number | null) => {
     if (typeof value !== "number" || Number.isNaN(value)) return "Not rated";
-    return `${value.toFixed(1)}/10`;
+    return `${Math.round(value)}/10`;
   };
 
   const normalizePreferenceRating = (value?: number | null) => {
@@ -102,6 +118,12 @@ export default function TasksScreen() {
     if (rating <= 3) return "#f44336";
     if (rating <= 6) return "#ff9800";
     return "#4caf50";
+  };
+
+  const getReadableRatingTextColor = (rating: number) => {
+    if (rating <= 3) return "#B3261E";
+    if (rating <= 6) return "#8C4A00";
+    return "#1B5E20";
   };
 
   const getColorWithAlpha = (hexColor: string, alpha: number) => {
@@ -156,12 +178,68 @@ export default function TasksScreen() {
     ]);
   };
 
+  const openInviteDialog = () => {
+    setInviteEmail("");
+    setInviteEmailError("");
+    setIsInviteDialogVisible(true);
+  };
+
+  const closeInviteDialog = () => {
+    if (isSubmittingInvite) return;
+    setIsInviteDialogVisible(false);
+    setInviteEmailError("");
+  };
+
+  const submitInvite = async () => {
+    const trimmedEmail = inviteEmail.trim();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!trimmedEmail) {
+      setInviteEmailError("Email is required.");
+      return;
+    }
+
+    if (!emailPattern.test(trimmedEmail)) {
+      setInviteEmailError("Enter a valid email address.");
+      return;
+    }
+
+    try {
+      setIsSubmittingInvite(true);
+
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
+      const response = await fetch(`${apiUrl}/api/team/addMembers`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ Emails: [trimmedEmail] }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(errorText || "Unable to add this team member right now.");
+      }
+
+      setIsInviteDialogVisible(false);
+      setInviteEmail("");
+      setInviteEmailError("");
+      Alert.alert("Member added", `${trimmedEmail} has been added to ${teamName || "your team"}.`);
+    } catch (error) {
+      Alert.alert("Add failed", error instanceof Error ? error.message : "Unable to add this team member right now.");
+    } finally {
+      setIsSubmittingInvite(false);
+    }
+  };
+
   // Sort posted tasks by newest first (assignedDate descending)
   const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => new Date(b.autoAssignAt).getTime() - new Date(a.autoAssignAt).getTime());
 
   const tabOptions = [
-    { value: "myTasks", label: "My Tasks" },
     { value: "availableTasks", label: "Available Tasks" },
+    { value: "myTasks", label: "My Tasks" },
   ];
 
   const taskFilterLabelMap: Record<string, string> = {
@@ -264,8 +342,9 @@ export default function TasksScreen() {
 
   return (
     <View style={styles.container}>
-      <Appbar.Header style={{ marginLeft: "auto" }}>
-        <Appbar.Content title={teamName} />
+      <Appbar.Header style={{ marginLeft: "auto", backgroundColor: theme.colors.secondary }}>
+        <Appbar.Content title={teamName} titleStyle={styles.teamNameTitle} />
+        <Appbar.Action icon="account-plus" onPress={openInviteDialog} />
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
         <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
       </Appbar.Header>
@@ -337,7 +416,7 @@ export default function TasksScreen() {
                           ✓
                         </Button>
                       ) : (
-                        <Button mode="outlined" style={styles.statusButton} labelStyle={{ color: getStatusColor(task.status), fontSize: 12 }} onPress={() => handleTaskCompletion(task.id)}>
+                        <Button mode="outlined" style={[styles.statusButton, styles.ratingToggleButton]} contentStyle={styles.ratingToggleButtonContent} labelStyle={[styles.ratingToggleButtonLabel, { color: getStatusColor(task.status) }]} onPress={() => handleTaskCompletion(task.id)}>
                           Mark Done
                         </Button>
                       )}
@@ -345,6 +424,22 @@ export default function TasksScreen() {
                   </Card.Content>
                 </Card>
               ))}
+
+              {filteredAssignedTasks.length === 0 ? (
+                <Card style={styles.emptyStateCard} mode="outlined">
+                  <Card.Content>
+                    <Text variant="titleMedium" style={styles.emptyStateTitle}>
+                      No tasks yet
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.emptyStateText}>
+                      You do not have tasks assigned currently. Try switching filters or check Available Tasks.
+                    </Text>
+                    <Button mode="outlined" onPress={() => setTaskFilter("all")} style={styles.emptyStateButton}>
+                      Show All
+                    </Button>
+                  </Card.Content>
+                </Card>
+              ) : null}
             </View>
           </ScrollView>
         )}
@@ -366,6 +461,7 @@ export default function TasksScreen() {
                     {(() => {
                       const displayedRating = getDisplayedRating(task);
                       const ratingColor = getRatingColor(displayedRating);
+                      const ratingTextColor = getReadableRatingTextColor(displayedRating);
 
                       return (
                         <>
@@ -374,7 +470,7 @@ export default function TasksScreen() {
                               {task.title}
                             </Text>
                             <View style={styles.taskHeaderRight}>
-                              <Text variant="bodySmall" style={styles.pointsWorth}>
+                              <Text variant="bodyMedium" style={styles.pointsWorth}>
                                 {task.points} points
                               </Text>
                             </View>
@@ -395,7 +491,7 @@ export default function TasksScreen() {
                                 Due: {formatDateTime(task.dueAt)}
                               </Text>
                             </View>
-                            <View style={styles.metaRow}>
+                            <View style={[styles.metaRow, styles.metaRowTightBottom]}>
                               <MaterialDesignIcons name="clock-outline" size={14} color={theme.colors.onSurfaceVariant} />
                               <Text variant="bodySmall" style={styles.metaText}>
                                 Auto-assign: {formatDateTime(task.autoAssignedAt ?? task.autoAssignAt)}
@@ -405,11 +501,11 @@ export default function TasksScreen() {
 
                           <View style={styles.unassignedActionRow}>
                             <View style={[styles.ratingPill, { backgroundColor: getColorWithAlpha(ratingColor, 0.16), borderColor: ratingColor }]}>
-                              <Text variant="bodyMedium" style={[styles.ratingPillText, { color: ratingColor }]}>
+                              <Text variant="bodyMedium" style={[styles.ratingPillText, { color: ratingTextColor }]}>
                                 Preference: {formatPreferenceRating(displayedRating)}
                               </Text>
                             </View>
-                            <Button mode="outlined" style={styles.statusButton} labelStyle={{ fontSize: 12 }} onPress={() => toggleRatingEditor(task)}>
+                            <Button mode="outlined" style={[styles.statusButton, styles.ratingToggleButton]} contentStyle={styles.ratingToggleButtonContent} labelStyle={styles.ratingToggleButtonLabel} onPress={() => toggleRatingEditor(task)}>
                               {ratingEditorsOpen[task.id] ? "Hide" : "Rate"}
                             </Button>
                           </View>
@@ -447,6 +543,22 @@ export default function TasksScreen() {
                   </Card.Content>
                 </Card>
               ))}
+
+              {sortedUnassignedTasks.length === 0 ? (
+                <Card style={styles.emptyStateCard} mode="outlined">
+                  <Card.Content>
+                    <Text variant="titleMedium" style={styles.emptyStateTitle}>
+                      No available tasks
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.emptyStateText}>
+                      Nothing is going on right now. Create a task and your team can rate it here.
+                    </Text>
+                    <Button mode="contained" onPress={() => router.push("/dashboard/newTask")} style={styles.emptyStateButton}>
+                      Create Task
+                    </Button>
+                  </Card.Content>
+                </Card>
+              ) : null}
             </View>
           </ScrollView>
         )}
@@ -461,9 +573,45 @@ export default function TasksScreen() {
       </View>
 
       {/* Create new task */}
-      <View style={styles.fabContainer}>
-        <FAB icon={"plus"} style={styles.fabMain} onPress={() => router.push("/dashboard/newTask")} />
+      <View style={[styles.fabContainer, activeTab === "availableTasks" && styles.fabContainerRaised]}>
+        <FAB icon={"plus"} color="#FFFFFF" customSize={64} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
       </View>
+
+      <Portal>
+        <Dialog visible={isInviteDialogVisible} onDismiss={closeInviteDialog}>
+          <Dialog.Title>Add Team Member</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.inviteDialogCopy}>
+              Enter the email address of the person you want to add.
+            </Text>
+            <TextInput
+              mode="outlined"
+              label="Email"
+              value={inviteEmail}
+              onChangeText={(text) => {
+                setInviteEmail(text);
+                if (inviteEmailError) {
+                  setInviteEmailError("");
+                }
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              error={Boolean(inviteEmailError)}
+            />
+            {inviteEmailError ? <Text style={styles.inviteDialogError}>{inviteEmailError}</Text> : null}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeInviteDialog} disabled={isSubmittingInvite}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={() => void submitInvite()} loading={isSubmittingInvite} disabled={isSubmittingInvite}>
+              Add
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -471,13 +619,28 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f7f3f9",
   },
   content: {
     flex: 1,
   },
+  teamNameTitle: {
+    fontSize: 25,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    marginRight: 8,
+  },
+  inviteDialogCopy: {
+    marginBottom: 12,
+    opacity: 0.8,
+  },
+  inviteDialogError: {
+    marginTop: 8,
+    color: "#B3261E",
+  },
   tabContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   tabButtons: {
     marginBottom: 0,
@@ -496,8 +659,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 4,
-    paddingBottom: 12,
+    paddingBottom: 16,
   },
   sectionTitle: {
     fontWeight: "bold",
@@ -507,24 +669,28 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   postedTaskCard: {
-    marginBottom: 8,
+    marginBottom: 12,
     borderRadius: 12,
   },
   taskDates: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   dateText: {
     marginLeft: 6,
     opacity: 0.7,
+    fontFamily: cardBodyFontFamily,
+    letterSpacing: 0.15,
   },
   pointsWorth: {
     opacity: 0.6,
     fontWeight: "600",
+    fontFamily: cardBodyFontFamily,
+    letterSpacing: 0.2,
   },
   skillsContainer: {
     flexDirection: "row",
@@ -551,7 +717,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   taskHeaderRight: {
     flexDirection: "row",
@@ -564,19 +730,24 @@ const styles = StyleSheet.create({
   ratingPill: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     borderWidth: 1,
+    minHeight: 34,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 0,
     borderRadius: 999,
   },
   ratingPillText: {
     fontWeight: "600",
+    fontFamily: cardBodyFontFamily,
+    letterSpacing: 0.2,
   },
   taskTitle: {
     flex: 1,
     fontWeight: "600",
-    marginRight: 8,
+    fontFamily: cardTitleFontFamily,
+    letterSpacing: 0.2,
   },
   badgeContainer: {
     flexDirection: "row",
@@ -585,21 +756,25 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   taskDescription: {
-    marginBottom: 12,
+    marginBottom: 8,
     opacity: 0.8,
     lineHeight: 20,
+    fontFamily: cardBodyFontFamily,
+    letterSpacing: 0.15,
   },
   taskMeta: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 8,
   },
   metaText: {
     marginLeft: 6,
     opacity: 0.7,
+    fontFamily: cardBodyFontFamily,
+    letterSpacing: 0.15,
   },
   statusContainer: {
     flexDirection: "row",
@@ -612,9 +787,12 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
+  metaRowTightBottom: {
+    marginBottom: 2,
+  },
   inlineScoringContainer: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "rgba(0, 0, 0, 0.12)",
   },
@@ -650,8 +828,21 @@ const styles = StyleSheet.create({
     marginRight: 4,
     borderRadius: 16,
   },
+  ratingToggleButton: {
+    minHeight: 34,
+  },
+  ratingToggleButtonContent: {
+    height: 34,
+  },
+  ratingToggleButtonLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginVertical: 0,
+    includeFontPadding: false,
+  },
   submitChangesButton: {
     borderRadius: 12,
+    marginBottom: 8,
   },
   submitChangesButtonContent: {
     height: 46,
@@ -670,8 +861,27 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: "center",
   },
+  fabContainerRaised: {
+    bottom: 74,
+  },
   fabMain: {
-    backgroundColor: "#00caee",
+    // Background color is bound to theme.colors.primary at render time.
+  },
+  emptyStateCard: {
+    marginBottom: 12,
+    borderRadius: 12,
+  },
+  emptyStateTitle: {
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  emptyStateText: {
+    opacity: 0.8,
+    lineHeight: 20,
+  },
+  emptyStateButton: {
+    marginTop: 12,
+    alignSelf: "flex-start",
   },
   fabOption: {
     marginBottom: 12,

@@ -252,13 +252,17 @@ export default function NewTaskScreen() {
               </View>
             ) : null}
 
-            <TextInput mode="outlined" label="Points *" value={form.points} onChangeText={(value) => updateField("points", value)} keyboardType="number-pad" error={Boolean(errors.points)} style={styles.field} />
+            <Text variant="bodySmall" style={styles.pointsExplanation}>
+              Points represent the amount of work required for this task and are used to distribute tasks fairly.
+            </Text>
+
+            <TextInput mode="outlined" label="Points*" value={form.points} onChangeText={(value) => updateField("points", value)} keyboardType="number-pad" error={Boolean(errors.points)} style={styles.field} />
             <HelperText type="error" visible={Boolean(errors.points)}>
               {errors.points}
             </HelperText>
 
             <Button mode="contained" onPress={() => void submitTask()} loading={isSubmitting} disabled={isSubmitting} style={styles.submitButton}>
-              Submit New Task
+              Create New Task
             </Button>
           </Card.Content>
         </Card>
@@ -307,6 +311,10 @@ const styles = StyleSheet.create({
     padding: 8,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(0, 0, 0, 0.15)",
+  },
+  pointsExplanation: {
+    marginTop: 12,
+    opacity: 0.8,
   },
   submitButton: {
     marginTop: 16,

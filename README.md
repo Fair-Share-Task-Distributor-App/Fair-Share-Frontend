@@ -1,50 +1,46 @@
-# Welcome to your Expo app 👋
+# Task Distributor: Fair Share
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Google Play Download Link
+Link replace here
 
-## Get started
+## Overview
+A mobile application that automatically distribute tasks among team members in a fair and balanced way. It aims to ensure equal workload while assigning based on each individual's preference. 
 
-1. Install dependencies
+This is the frontend of the app, check out the backend for more information about api.  
+https://github.com/Fair-Share-Task-Distributor-App/Fair-Share-Backend 
 
-   ```bash
-   npm install
-   ```
 
-2. Start the app
+## How It Works:
+1. Create a list of tasks for the team, including point values for each.
+2. All members vote for their preferred tasks from a rating of 1 to 10.
+3. The app automatically evaluates each member's preference and points to assign the tasks evenly to everyone. 
 
-   ```bash
-   npx expo start
-   ```
+## Key Features:
+Automatic Task Assignment: Assign tasks fairly based on a point system at scheduled times.   
+Invitation: Invite other people into the team through the email that is used to sign up.    
+Preference Score: Putting a higher score will give a better chance of getting preferred tasks.    
+Sync with Calendar: Connect to Google Calendar to track tasks easier.   
+Clean and Easy UI: Simple and intuitive interface with tutorial to get started. 
 
-In the output, you'll find options to open the app in a
+## Tech Stack
+### Frontend
+- React Native
+- Expo
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Backend
+- ASP.NET Core Web API
+- Entity Framework Core
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Database
+- PostgreSQL
 
-## Get a fresh project
+### Cloud & DevOps
+- Azure (containerized deployment)
+- Expo Application Services (EAS)
 
-When you're ready, run:
 
-```bash
-npm run reset-project
-```
+## License
+This project is licensed under the MIT License.
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Author
+Developed by Thet-Wai-123
