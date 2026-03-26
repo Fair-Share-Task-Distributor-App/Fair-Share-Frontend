@@ -176,7 +176,7 @@ export default function LoginScreen() {
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.header}>
-            <Image source={require("../../assets/images/Fair Share Logo_transparent.png")} style={styles.logo} resizeMode="contain" />
+            <Image source={require("../../assets/images/playstore-icon.png")} style={styles.logo} resizeMode="contain" />
             <Text variant="titleMedium" style={styles.subtitle}>
               Welcome! Please {isSignUp ? "create your account" : "sign in to continue"}
             </Text>
@@ -277,7 +277,7 @@ export default function LoginScreen() {
           ) : (
             <GoogleSigninButton onPress={handleGoogleSignIn} size={GoogleSigninButton.Size.Wide} color={GoogleSigninButton.Color.Dark} disabled={isGoogleSigninInProgress} />
           )}
-{/* 
+          {/* 
           <Button mode="contained" onPress={handleDebugLogin}>
             Debug Login
           </Button> */}
@@ -300,6 +300,7 @@ const styles = StyleSheet.create({
     justifyContent: "center", // vertical centering
     alignItems: "center", // horizontal centering
     paddingTop: 30,
+    backgroundColor: "#fafbfc",
   },
   header: {
     alignItems: "center",

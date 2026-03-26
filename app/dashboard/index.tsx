@@ -342,7 +342,7 @@ export default function TasksScreen() {
 
   return (
     <View style={styles.container}>
-      <Appbar.Header style={{ marginLeft: "auto" }}>
+      <Appbar.Header style={{ marginLeft: "auto", backgroundColor: theme.colors.secondary }}>
         <Appbar.Content title={teamName} titleStyle={styles.teamNameTitle} />
         <Appbar.Action icon="account-plus" onPress={openInviteDialog} />
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
