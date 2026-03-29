@@ -1,123 +1,175 @@
-import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { router } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Appbar, Avatar, Button, Card, Divider, List, Text, useTheme } from "react-native-paper";
+import * as SecureStore from "expo-secure-store";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Appbar, Avatar, Card, Text } from "react-native-paper";
+
+type ProfileResponse = {
+  name: string;
+  email: string;
+  password: string;
+  points: number;
+  tasksAssigned: number;
+};
 
 export default function ProfileScreen() {
-  const theme = useTheme();
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const [profile, setProfile] = useState<ProfileResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-  const user = {
-    name: "John Doe",
-    email: "john.doe@fairshare.com",
-    role: "Frontend Developer",
-    joinDate: "January 2024",
-    avatar: "JD",
-  };
+  const avatarLabel = useMemo(() => {
+    const source = profile?.name?.trim();
+    if (!source) return "?";
+    const parts = source.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  }, [profile?.name]);
 
-  const stats = [
-    { label: "Tasks Completed", value: "42", icon: "check-circle" },
-    { label: "Projects", value: "8", icon: "folder" },
-  ];
+  const fetchProfile = useCallback(
+    async (isPullRefresh = false) => {
+      if (!apiUrl) {
+        setErrorMessage("API URL is not configured.");
+        setIsLoading(false);
+        setIsRefreshing(false);
+        return;
+      }
+
+      try {
+        if (isPullRefresh) {
+          setIsRefreshing(true);
+        } else {
+          setIsLoading(true);
+        }
+        setErrorMessage("");
+
+        const token = await SecureStore.getItemAsync("JWT_TOKEN");
+        if (!token) {
+          throw new Error("You are not authenticated. Please sign in again.");
+        }
+
+        const response = await fetch(`${apiUrl}/api/Account/me`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const message = await response.text().catch(() => "");
+          throw new Error(message || "Unable to load profile.");
+        }
+
+        const payload = (await response.json()) as ProfileResponse;
+        setProfile(payload);
+      } catch (error) {
+        setErrorMessage(error instanceof Error ? error.message : "Unable to load profile.");
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [apiUrl],
+  );
+
+  useEffect(() => {
+    void fetchProfile();
+  }, [fetchProfile]);
 
   return (
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Profile" />
-        <Appbar.Action icon="pencil" onPress={() => console.log("Edit profile")} />
+        <Appbar.Content title="Profile" titleStyle={styles.teamNameTitle} />
       </Appbar.Header>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void fetchProfile(true)} />}>
         <Card style={styles.profileCard}>
           <Card.Content style={styles.profileContent}>
-            <Avatar.Text size={80} label={user.avatar} style={[styles.avatar, { backgroundColor: theme.colors.primary }]} />
+            <Avatar.Text size={80} label={avatarLabel} style={styles.avatar} />
             <View style={styles.userInfo}>
               <Text variant="headlineSmall" style={styles.userName}>
-                {user.name}
+                {profile?.name ?? "-"}
               </Text>
-              <Text variant="bodyLarge" style={styles.userRole}>
-                {user.role}
-              </Text>
-              <Text variant="bodySmall" style={styles.joinDate}>
-                Member since {user.joinDate}
+              <Text variant="bodyLarge" style={styles.userEmail}>
+                {profile?.email ?? "-"}
               </Text>
             </View>
           </Card.Content>
         </Card>
 
-        <Card style={styles.statsCard}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Statistics
-            </Text>
-            <View style={styles.statsContainer}>
-              {stats.map((stat, index) => (
-                <View key={index} style={styles.statItem}>
-                  <MaterialDesignIcons name={stat.icon as any} size={24} color={theme.colors.primary} />
-                  <Text variant="headlineSmall" style={styles.statValue}>
-                    {stat.value}
+        {isLoading ? (
+          <Card style={styles.infoCard}>
+            <Card.Content>
+              <Text variant="bodyMedium">Loading profile...</Text>
+            </Card.Content>
+          </Card>
+        ) : null}
+
+        {!isLoading && errorMessage ? (
+          <Card style={styles.infoCard}>
+            <Card.Content>
+              <Text variant="titleSmall" style={styles.errorTitle}>
+                Could not load profile
+              </Text>
+              <Text variant="bodyMedium">{errorMessage}</Text>
+            </Card.Content>
+          </Card>
+        ) : null}
+
+        {!isLoading && !errorMessage ? (
+          <Card style={styles.detailsCard}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                My Profile
+              </Text>
+
+              <View style={styles.detailRow}>
+                <Text variant="labelLarge" style={styles.detailLabel}>
+                  Name
+                </Text>
+                <Text variant="bodyLarge">{profile?.name ?? "-"}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text variant="labelLarge" style={styles.detailLabel}>
+                  Email
+                </Text>
+                <Text variant="bodyLarge">{profile?.email ?? "-"}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text variant="labelLarge" style={styles.detailLabel}>
+                  Password
+                </Text>
+                <TouchableOpacity onPress={() => setIsPasswordVisible((prev) => !prev)} activeOpacity={0.8} style={styles.passwordTapArea}>
+                  <Text variant="bodyLarge">{isPasswordVisible ? (profile?.password ?? "-") : "••••••••"}</Text>
+                  <Text variant="bodySmall" style={styles.passwordHint}>
+                    {isPasswordVisible ? "Tap to hide" : "Tap to show"}
                   </Text>
-                  <Text variant="bodySmall" style={styles.statLabel}>
-                    {stat.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </Card.Content>
-        </Card>
+                </TouchableOpacity>
+              </View>
 
-        <Card style={styles.settingsCard}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Settings
-            </Text>
+              <View style={styles.detailRow}>
+                <Text variant="labelLarge" style={styles.detailLabel}>
+                  Points
+                </Text>
+                <Text variant="bodyLarge">{profile?.points ?? 0}</Text>
+              </View>
 
-            <List.Item
-              title="Account Settings"
-              description="Email, password, and security"
-              left={() => <MaterialDesignIcons name="account-cog" size={24} color={theme.colors.onSurfaceVariant} />}
-              right={() => <MaterialDesignIcons name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />}
-              onPress={() => console.log("Account settings")}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Notifications"
-              description="Manage your notification preferences"
-              left={() => <MaterialDesignIcons name="bell-outline" size={24} color={theme.colors.onSurfaceVariant} />}
-              right={() => <MaterialDesignIcons name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />}
-              onPress={() => console.log("Notifications")}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Privacy"
-              description="Control your privacy settings"
-              left={() => <MaterialDesignIcons name="shield-account-outline" size={24} color={theme.colors.onSurfaceVariant} />}
-              right={() => <MaterialDesignIcons name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />}
-              onPress={() => console.log("Privacy")}
-            />
-
-            <Divider />
-
-            <List.Item
-              title="Help & Support"
-              description="Get help or contact support"
-              left={() => <MaterialDesignIcons name="help-circle-outline" size={24} color={theme.colors.onSurfaceVariant} />}
-              right={() => <MaterialDesignIcons name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />}
-              onPress={() => console.log("Help & Support")}
-            />
-          </Card.Content>
-        </Card>
-
-        <View style={styles.logoutContainer}>
-          <Button mode="outlined" onPress={() => router.replace("/(tabs)")} buttonColor={theme.colors.errorContainer} textColor={theme.colors.onErrorContainer} style={styles.logoutButton}>
-            Sign Out
-          </Button>
-        </View>
+              <View style={[styles.detailRow, styles.detailRowLast]}>
+                <Text variant="labelLarge" style={styles.detailLabel}>
+                  Tasks Assigned
+                </Text>
+                <Text variant="bodyLarge">{profile?.tasksAssigned ?? 0}</Text>
+              </View>
+            </Card.Content>
+          </Card>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -127,11 +179,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  teamNameTitle: {
+    fontSize: 25,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    marginRight: 8,
+  },
   content: {
     flex: 1,
   },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 28,
+  },
   profileCard: {
-    margin: 16,
+    marginBottom: 12,
+    borderRadius: 12,
   },
   profileContent: {
     alignItems: "center",
@@ -147,46 +210,42 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 4,
   },
-  userRole: {
-    marginBottom: 8,
+  userEmail: {
     opacity: 0.8,
   },
-  joinDate: {
-    opacity: 0.6,
-  },
-  statsCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+  detailsCard: {
+    borderRadius: 12,
   },
   sectionTitle: {
     fontWeight: "600",
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
+  detailRow: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(0, 0, 0, 0.14)",
   },
-  statItem: {
-    alignItems: "center",
-    flex: 1,
+  detailRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
   },
-  statValue: {
-    fontWeight: "bold",
-    marginVertical: 4,
-  },
-  statLabel: {
-    textAlign: "center",
+  detailLabel: {
     opacity: 0.7,
+    marginBottom: 2,
   },
-  settingsCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+  passwordTapArea: {
+    alignSelf: "flex-start",
   },
-  logoutContainer: {
-    padding: 16,
-    paddingBottom: 32,
+  passwordHint: {
+    opacity: 0.65,
+    marginTop: 2,
   },
-  logoutButton: {
-    borderWidth: 1,
+  infoCard: {
+    marginBottom: 12,
+    borderRadius: 12,
+  },
+  errorTitle: {
+    color: "#B3261E",
+    marginBottom: 6,
   },
 });

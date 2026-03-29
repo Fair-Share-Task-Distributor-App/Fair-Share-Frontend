@@ -185,7 +185,7 @@ export default function NewTaskScreen() {
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Create Task" />
+        <Appbar.Content title="Create Task" titleStyle={styles.teamNameTitle} />
       </Appbar.Header>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -206,7 +206,7 @@ export default function NewTaskScreen() {
             </HelperText>
 
             <View style={styles.pickerField}>
-              <Text variant="labelLarge">DueAt *</Text>
+              <Text variant="labelLarge">Due Date *</Text>
               <Text variant="bodyMedium" style={styles.pickerValueText}>
                 {formatDateTime(form.dueAt)}
               </Text>
@@ -224,7 +224,7 @@ export default function NewTaskScreen() {
             </HelperText>
 
             <View style={styles.pickerField}>
-              <Text variant="labelLarge">AutoAssignAt *</Text>
+              <Text variant="labelLarge">Auto-Assign Date *</Text>
               <Text variant="bodyMedium" style={styles.pickerValueText}>
                 {formatDateTime(form.autoAssignAt)}
               </Text>
@@ -274,6 +274,12 @@ export default function NewTaskScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  teamNameTitle: {
+    fontSize: 25,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    marginRight: 8,
   },
   content: {
     padding: 16,

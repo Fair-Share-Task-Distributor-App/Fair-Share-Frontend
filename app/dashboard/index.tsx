@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Appbar, Button, Card, Dialog, FAB, Menu, Portal, SegmentedButtons, Text, TextInput, useTheme } from "react-native-paper";
+import { Appbar, Button, Card, Dialog, FAB, IconButton, Menu, Portal, SegmentedButtons, Text, TextInput, useTheme } from "react-native-paper";
 
 const cardTitleFontFamily = Platform.select({
   ios: "System",
@@ -34,6 +34,14 @@ export default function TasksScreen() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteEmailError, setInviteEmailError] = useState("");
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
+  const [isEditDialogVisible, setIsEditDialogVisible] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editPoints, setEditPoints] = useState("");
+  const [editFormError, setEditFormError] = useState("");
+  const [isSubmittingTaskEdit, setIsSubmittingTaskEdit] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const teamName = useUserStore((state) => state.teamName);
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -178,6 +186,141 @@ export default function TasksScreen() {
     ]);
   };
 
+  const openEditDialog = (task: any) => {
+    setEditingTaskId(task.id);
+    setEditTitle(task.title ?? "");
+    setEditDescription(task.description ?? "");
+    setEditPoints(typeof task.points === "number" ? String(task.points) : "");
+    setEditFormError("");
+    setIsEditDialogVisible(true);
+  };
+
+  const closeEditDialog = () => {
+    if (isSubmittingTaskEdit) return;
+    setIsEditDialogVisible(false);
+    setEditingTaskId(null);
+    setEditFormError("");
+  };
+
+  const submitTaskUpdate = async () => {
+    if (!editingTaskId) return;
+
+    const trimmedTitle = editTitle.trim();
+    const trimmedDescription = editDescription.trim();
+    const parsedPoints = Number(editPoints.trim());
+
+    if (!trimmedTitle) {
+      setEditFormError("Title is required.");
+      return;
+    }
+
+    if (!Number.isInteger(parsedPoints) || parsedPoints < 1 || parsedPoints > 100) {
+      setEditFormError("Points must be a whole number between 1 and 100.");
+      return;
+    }
+
+    try {
+      setIsSubmittingTaskEdit(true);
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
+      const response = await fetch(`${apiUrl}/api/Task/${editingTaskId}`, {
+        method: "PUT",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: trimmedTitle,
+          description: trimmedDescription || null,
+          points: parsedPoints,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(errorText || "Unable to update task.");
+      }
+
+      setAssignedTasks((prev) =>
+        prev.map((task) =>
+          task.id === editingTaskId
+            ? {
+                ...task,
+                title: trimmedTitle,
+                description: trimmedDescription || null,
+                points: parsedPoints,
+              }
+            : task,
+        ),
+      );
+
+      setUnassignedTasks((prev) =>
+        prev.map((task) =>
+          task.id === editingTaskId
+            ? {
+                ...task,
+                title: trimmedTitle,
+                description: trimmedDescription || null,
+                points: parsedPoints,
+              }
+            : task,
+        ),
+      );
+
+      setIsEditDialogVisible(false);
+      setEditingTaskId(null);
+      setEditFormError("");
+      Alert.alert("Task updated", "Your changes have been saved.");
+    } catch (error) {
+      setEditFormError(error instanceof Error ? error.message : "Unable to update task.");
+    } finally {
+      setIsSubmittingTaskEdit(false);
+    }
+  };
+
+  const handleTaskDelete = (taskId: string) => {
+    if (deletingTaskId) return;
+
+    Alert.alert("Delete task?", "This will permanently remove the task.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          const deleteTask = async () => {
+            try {
+              setDeletingTaskId(taskId);
+              const token = await SecureStore.getItemAsync("JWT_TOKEN");
+              const response = await fetch(`${apiUrl}/api/Task/${taskId}`, {
+                method: "DELETE",
+                headers: {
+                  Accept: "application/json",
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              if (!response.ok) {
+                const errorText = await response.text().catch(() => "");
+                throw new Error(errorText || "Unable to delete task.");
+              }
+
+              setAssignedTasks((prev) => prev.filter((task) => task.id !== taskId));
+              setUnassignedTasks((prev) => prev.filter((task) => task.id !== taskId));
+              Alert.alert("Task deleted", "The task was removed successfully.");
+            } catch (error) {
+              Alert.alert("Delete failed", error instanceof Error ? error.message : "Unable to delete task.");
+            } finally {
+              setDeletingTaskId(null);
+            }
+          };
+
+          void deleteTask();
+        },
+      },
+    ]);
+  };
+
   const openInviteDialog = () => {
     setInviteEmail("");
     setInviteEmailError("");
@@ -193,14 +336,19 @@ export default function TasksScreen() {
   const submitInvite = async () => {
     const trimmedEmail = inviteEmail.trim();
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const requestedEmails = trimmedEmail
+      .split(/[\n,;]+/)
+      .map((email) => email.trim())
+      .filter((email) => email.length > 0);
 
-    if (!trimmedEmail) {
+    if (requestedEmails.length === 0) {
       setInviteEmailError("Email is required.");
       return;
     }
 
-    if (!emailPattern.test(trimmedEmail)) {
-      setInviteEmailError("Enter a valid email address.");
+    const invalidEmail = requestedEmails.find((email) => !emailPattern.test(email));
+    if (invalidEmail) {
+      setInviteEmailError(`Enter a valid email address: ${invalidEmail}`);
       return;
     }
 
@@ -208,14 +356,14 @@ export default function TasksScreen() {
       setIsSubmittingInvite(true);
 
       const token = await SecureStore.getItemAsync("JWT_TOKEN");
-      const response = await fetch(`${apiUrl}/api/team/addMembers`, {
+      const response = await fetch(`${apiUrl}/api/Team/addMembers`, {
         method: "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ Emails: [trimmedEmail] }),
+        body: JSON.stringify({ Emails: requestedEmails }),
       });
 
       if (!response.ok) {
@@ -223,10 +371,18 @@ export default function TasksScreen() {
         throw new Error(errorText || "Unable to add this team member right now.");
       }
 
+      const addedMembers = (await response.json().catch(() => [])) as { email?: string | null }[];
+      const successfulEmails = new Set(addedMembers.map((member) => member.email?.trim().toLowerCase()).filter((email): email is string => Boolean(email)));
+      const succeeded = requestedEmails.filter((email) => successfulEmails.has(email.toLowerCase()));
+      const failed = requestedEmails.filter((email) => !successfulEmails.has(email.toLowerCase()));
+
       setIsInviteDialogVisible(false);
       setInviteEmail("");
       setInviteEmailError("");
-      Alert.alert("Member added", `${trimmedEmail} has been added to ${teamName || "your team"}.`);
+
+      const summaryLines = [`Successful: ${succeeded.length > 0 ? succeeded.join(", ") : "None"}`, ...(failed.length > 0 ? [`Failed: ${failed.join(", ")}`] : [])];
+
+      Alert.alert(`Add members to ${teamName || "team"}`, summaryLines.join("\n"));
     } catch (error) {
       Alert.alert("Add failed", error instanceof Error ? error.message : "Unable to add this team member right now.");
     } finally {
@@ -342,9 +498,10 @@ export default function TasksScreen() {
 
   return (
     <View style={styles.container}>
-      <Appbar.Header style={{ marginLeft: "auto", backgroundColor: theme.colors.secondary }}>
-        <Appbar.Content title={teamName} titleStyle={styles.teamNameTitle} />
+      <Appbar.Header style={{ marginLeft: "auto" }}>
+        <Appbar.Content title="Dashboard" titleStyle={styles.teamNameTitle} />
         <Appbar.Action icon="account-plus" onPress={openInviteDialog} />
+        <Appbar.Action icon="account-group" onPress={() => router.push("/dashboard/team")} />
         <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
         <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
       </Appbar.Header>
@@ -382,7 +539,7 @@ export default function TasksScreen() {
                 <Card key={task.id} style={styles.taskCard} mode="outlined">
                   <Card.Content>
                     <View style={styles.taskHeader}>
-                      <Text variant="titleMedium" style={styles.taskTitle}>
+                      <Text variant="titleLarge" style={styles.taskTitle}>
                         {task.title}
                       </Text>
                     </View>
@@ -428,7 +585,7 @@ export default function TasksScreen() {
               {filteredAssignedTasks.length === 0 ? (
                 <Card style={styles.emptyStateCard} mode="outlined">
                   <Card.Content>
-                    <Text variant="titleMedium" style={styles.emptyStateTitle}>
+                    <Text variant="titleLarge" style={styles.emptyStateTitle}>
                       No tasks yet
                     </Text>
                     <Text variant="bodyMedium" style={styles.emptyStateText}>
@@ -466,13 +623,12 @@ export default function TasksScreen() {
                       return (
                         <>
                           <View style={styles.taskHeader}>
-                            <Text variant="titleMedium" style={styles.taskTitle}>
+                            <Text variant="titleLarge" style={styles.taskTitle}>
                               {task.title}
                             </Text>
                             <View style={styles.taskHeaderRight}>
-                              <Text variant="bodyMedium" style={styles.pointsWorth}>
-                                {task.points} points
-                              </Text>
+                              <IconButton icon="pencil" size={18} onPress={() => openEditDialog(task)} disabled={deletingTaskId === task.id} style={styles.taskIconAction} />
+                              <IconButton icon="trash-can-outline" size={18} iconColor="#B3261E" onPress={() => handleTaskDelete(task.id)} disabled={deletingTaskId === task.id} style={styles.taskIconAction} />
                             </View>
                           </View>
 
@@ -483,6 +639,10 @@ export default function TasksScreen() {
                               </Text>
                             </TouchableOpacity>
                           ) : null}
+
+                          <Text variant="bodyMedium" style={styles.pointsWorth}>
+                            {task.points} points
+                          </Text>
 
                           <View style={styles.taskDates}>
                             <View style={styles.dateRow}>
@@ -547,7 +707,7 @@ export default function TasksScreen() {
               {sortedUnassignedTasks.length === 0 ? (
                 <Card style={styles.emptyStateCard} mode="outlined">
                   <Card.Content>
-                    <Text variant="titleMedium" style={styles.emptyStateTitle}>
+                    <Text variant="titleLarge" style={styles.emptyStateTitle}>
                       No available tasks
                     </Text>
                     <Text variant="bodyMedium" style={styles.emptyStateText}>
@@ -578,6 +738,24 @@ export default function TasksScreen() {
       </View>
 
       <Portal>
+        <Dialog visible={isEditDialogVisible} onDismiss={closeEditDialog}>
+          <Dialog.Title>Edit Task</Dialog.Title>
+          <Dialog.Content>
+            <TextInput mode="outlined" label="Title" value={editTitle} onChangeText={setEditTitle} style={styles.editDialogField} disabled={isSubmittingTaskEdit} />
+            <TextInput mode="outlined" label="Description" value={editDescription} onChangeText={setEditDescription} multiline numberOfLines={3} style={styles.editDialogField} disabled={isSubmittingTaskEdit} />
+            <TextInput mode="outlined" label="Points" value={editPoints} onChangeText={setEditPoints} keyboardType="number-pad" style={styles.editDialogField} disabled={isSubmittingTaskEdit} />
+            {editFormError ? <Text style={styles.editDialogError}>{editFormError}</Text> : null}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeEditDialog} disabled={isSubmittingTaskEdit}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={() => void submitTaskUpdate()} loading={isSubmittingTaskEdit} disabled={isSubmittingTaskEdit}>
+              Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
         <Dialog visible={isInviteDialogVisible} onDismiss={closeInviteDialog}>
           <Dialog.Title>Add Team Member</Dialog.Title>
           <Dialog.Content>
@@ -638,6 +816,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: "#B3261E",
   },
+  editDialogField: {
+    marginTop: 10,
+  },
+  editDialogError: {
+    marginTop: 10,
+    color: "#B3261E",
+  },
   tabContainer: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -687,6 +872,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
   },
   pointsWorth: {
+    marginBottom: 8,
     opacity: 0.6,
     fontWeight: "600",
     fontFamily: cardBodyFontFamily,
@@ -722,7 +908,10 @@ const styles = StyleSheet.create({
   taskHeaderRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 0,
+  },
+  taskIconAction: {
+    margin: 0,
   },
   newTaskStar: {
     marginLeft: 4,
@@ -839,6 +1028,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginVertical: 0,
     includeFontPadding: false,
+  },
+  deleteTaskButton: {
+    borderColor: "#B3261E",
+  },
+  deleteTaskButtonLabel: {
+    color: "#B3261E",
   },
   submitChangesButton: {
     borderRadius: 12,

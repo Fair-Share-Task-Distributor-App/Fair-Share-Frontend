@@ -33,8 +33,21 @@ export default function NewUserIntroScreen() {
       return;
     }
 
-    const responseData = (await response.json().catch(() => null)) as { name?: string; teamName?: string } | null;
-    setTeamNameInStore(responseData?.name ?? teamName);
+    const responseData = (await response.json().catch(() => null)) as {
+      Team?: {
+        name?: string;
+        teamName?: string;
+      };
+      jwt?: string;
+    } | null;
+
+    if (!responseData?.jwt) {
+      alert("Something went wrong. Please log out and log back in to refresh your session.");
+      return;
+    }
+
+    await SecureStore.setItemAsync("JWT_TOKEN", responseData.jwt);
+    setTeamNameInStore(responseData.Team?.name ?? responseData.Team?.teamName ?? teamName);
 
     router.push("/dashboard");
   };
