@@ -206,7 +206,7 @@ export default function NewTaskScreen() {
             </HelperText>
 
             <View style={styles.pickerField}>
-              <Text variant="labelLarge">DueAt *</Text>
+              <Text variant="labelLarge">Due Date *</Text>
               <Text variant="bodyMedium" style={styles.pickerValueText}>
                 {formatDateTime(form.dueAt)}
               </Text>
@@ -224,7 +224,7 @@ export default function NewTaskScreen() {
             </HelperText>
 
             <View style={styles.pickerField}>
-              <Text variant="labelLarge">AutoAssignAt *</Text>
+              <Text variant="labelLarge">Auto-Assign Date *</Text>
               <Text variant="bodyMedium" style={styles.pickerValueText}>
                 {formatDateTime(form.autoAssignAt)}
               </Text>

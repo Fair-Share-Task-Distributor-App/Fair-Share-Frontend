@@ -99,12 +99,6 @@ export default function LoginScreen() {
     }
   };
 
-  // const handleDebugLogin = async () => {
-  //   await SecureStore.setItemAsync("JWT_TOKEN", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0IiwidGVhbUlkIjoiMSIsImV4cCI6MTc3NDMxMTIzOSwiaXNzIjoiRmFpclNoYXJlQXBwIiwiYXVkIjoiRmFpclNoYXJlQXBwIn0.MzqobZAvJQExXI9O0BU2j5r8gW_0AWZV0LHjiZ3IQQs");
-
-  //   router.push("/dashboard");
-  // };
-
   const validateForm = () => {
     let isValid = true;
 
@@ -159,6 +153,7 @@ export default function LoginScreen() {
       }
       const authData = (await authResponse.json()) as AuthResponseData;
       const { token, isNewUser } = authData;
+      console.log("Received JWT token: ", token);
       await SecureStore.setItemAsync("JWT_TOKEN", token);
       setUserProfile({
         name: authData.name,
@@ -277,10 +272,6 @@ export default function LoginScreen() {
           ) : (
             <GoogleSigninButton onPress={handleGoogleSignIn} size={GoogleSigninButton.Size.Wide} color={GoogleSigninButton.Color.Dark} disabled={isGoogleSigninInProgress} />
           )}
-          {/* 
-          <Button mode="contained" onPress={handleDebugLogin}>
-            Debug Login
-          </Button> */}
         </Card.Content>
       </Card>
     </ScrollView>

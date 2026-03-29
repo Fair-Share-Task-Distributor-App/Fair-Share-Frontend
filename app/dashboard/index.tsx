@@ -380,7 +380,7 @@ export default function TasksScreen() {
       setInviteEmail("");
       setInviteEmailError("");
 
-      const summaryLines = [`Successful: ${succeeded.length > 0 ? succeeded.join(", ") : "None"}`, `Failed: ${failed.length > 0 ? failed.join(", ") : "None"}`];
+      const summaryLines = [`Successful: ${succeeded.length > 0 ? succeeded.join(", ") : "None"}`, ...(failed.length > 0 ? [`Failed: ${failed.join(", ")}`] : [])];
 
       Alert.alert(`Add members to ${teamName || "team"}`, summaryLines.join("\n"));
     } catch (error) {
@@ -568,20 +568,6 @@ export default function TasksScreen() {
                     </View>
 
                     <View style={styles.statusContainer}>
-                      <Button mode="outlined" style={[styles.statusButton, styles.ratingToggleButton]} contentStyle={styles.ratingToggleButtonContent} labelStyle={styles.ratingToggleButtonLabel} onPress={() => openEditDialog(task)} disabled={deletingTaskId === task.id}>
-                        Edit
-                      </Button>
-                      <Button
-                        mode="outlined"
-                        style={[styles.statusButton, styles.ratingToggleButton, styles.deleteTaskButton]}
-                        contentStyle={styles.ratingToggleButtonContent}
-                        labelStyle={[styles.ratingToggleButtonLabel, styles.deleteTaskButtonLabel]}
-                        onPress={() => handleTaskDelete(task.id)}
-                        disabled={deletingTaskId === task.id}
-                        loading={deletingTaskId === task.id}
-                      >
-                        Delete
-                      </Button>
                       {task.isCompleted === true ? (
                         <Button mode="contained" style={[styles.statusButton, { backgroundColor: getStatusColor(task.status) }]} labelStyle={{ color: "white", fontSize: 15 }} disabled>
                           ✓
