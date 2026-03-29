@@ -24,7 +24,7 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Profile" />
+        <Appbar.Content title="Profile" titleStyle={styles.teamNameTitle} />
         <Appbar.Action icon="pencil" onPress={() => console.log("Edit profile")} />
       </Appbar.Header>
 
@@ -126,6 +126,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  teamNameTitle: {
+    fontSize: 25,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    marginRight: 8,
   },
   content: {
     flex: 1,

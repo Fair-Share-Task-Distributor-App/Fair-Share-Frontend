@@ -19,7 +19,7 @@ const lightPaperTheme = {
     onPrimary: "#FFFFFF",
     primaryContainer: "#DBEAFE",
     onPrimaryContainer: "#1E3A8A",
-    secondary: "#ffc65d",
+    secondary: "#f3dc67",
     onSecondary: "#FFFFFF",
     secondaryContainer: "#E0F2FE",
     onSecondaryContainer: "#0C4A6E",
