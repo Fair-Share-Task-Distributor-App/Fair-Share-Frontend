@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Appbar, Button, Card, Dialog, FAB, IconButton, Menu, Portal, SegmentedButtons, Text, TextInput, useTheme } from "react-native-paper";
+import { Appbar, Button, Card, Dialog, FAB, IconButton, Menu, Portal, SegmentedButtons, Switch, Text, TextInput, useTheme } from "react-native-paper";
 
 const cardTitleFontFamily = Platform.select({
   ios: "System",
@@ -42,6 +42,8 @@ export default function TasksScreen() {
   const [editFormError, setEditFormError] = useState("");
   const [isSubmittingTaskEdit, setIsSubmittingTaskEdit] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [isCalendarSyncDialogVisible, setIsCalendarSyncDialogVisible] = useState(false);
+  const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(false);
   const teamName = useUserStore((state) => state.teamName);
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -390,6 +392,14 @@ export default function TasksScreen() {
     }
   };
 
+  const openCalendarSyncDialog = () => {
+    setIsCalendarSyncDialogVisible(true);
+  };
+
+  const closeCalendarSyncDialog = () => {
+    setIsCalendarSyncDialogVisible(false);
+  };
+
   // Sort posted tasks by newest first (assignedDate descending)
   const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => new Date(b.autoAssignAt).getTime() - new Date(a.autoAssignAt).getTime());
 
@@ -734,7 +744,10 @@ export default function TasksScreen() {
 
       {/* Create new task */}
       <View style={[styles.fabContainer, activeTab === "availableTasks" && styles.fabContainerRaised]}>
-        <FAB icon={"plus"} color="#FFFFFF" customSize={64} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
+        <View style={styles.fabStack}>
+          <FAB icon="calendar" color="#FFFFFF" customSize={64} style={[styles.fabMain, styles.calendarFab, { backgroundColor: theme.colors.secondary }]} onPress={openCalendarSyncDialog} />
+          <FAB icon={"plus"} color="#FFFFFF" customSize={64} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
+        </View>
       </View>
 
       <Portal>
@@ -789,6 +802,29 @@ export default function TasksScreen() {
             </Button>
           </Dialog.Actions>
         </Dialog>
+
+        <Dialog visible={isCalendarSyncDialogVisible} onDismiss={closeCalendarSyncDialog}>
+          <Dialog.Title>Google Calendar Sync</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.calendarSyncDialogCopy}>
+              Turn this on to track your assigned tasks in Google Calendar.
+            </Text>
+            <View style={styles.calendarSyncToggleRow}>
+              <View style={styles.calendarSyncToggleCopy}>
+                <Text variant="bodyMedium" style={styles.calendarSyncToggleTitle}>
+                  Sync is {isCalendarSyncEnabled ? "on" : "off"}
+                </Text>
+                <Text variant="bodySmall" style={styles.calendarSyncToggleSubtitle}>
+                  Use the switch to turn Google Calendar sync on or off.
+                </Text>
+              </View>
+              <Switch value={isCalendarSyncEnabled} onValueChange={setIsCalendarSyncEnabled} />
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeCalendarSyncDialog}>Done</Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
     </View>
   );
@@ -801,6 +837,34 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  fabStack: {
+    alignItems: "center",
+    gap: 12,
+  },
+  calendarFab: {
+    elevation: 6,
+  },
+  calendarSyncDialogCopy: {
+    marginBottom: 16,
+    opacity: 0.8,
+    lineHeight: 20,
+  },
+  calendarSyncToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  calendarSyncToggleCopy: {
+    flex: 1,
+  },
+  calendarSyncToggleTitle: {
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  calendarSyncToggleSubtitle: {
+    opacity: 0.75,
   },
   teamNameTitle: {
     fontSize: 25,
