@@ -43,10 +43,13 @@ export default function LoginScreen() {
 
   // Configure Google Sign-In
   React.useEffect(() => {
+    if (Platform.OS === "web") {
+      return;
+    }
+
     GoogleSignin.configure({
-      webClientId: "73051991942-te7a0pbmpi0okobhd112pph3pdt488di.apps.googleusercontent.com",
+      webClientId: "73051991942-kb15fu3g5baabfk14tsuo1l7cr22gqrr.apps.googleusercontent.com",
       offlineAccess: true,
-      forceCodeForRefreshToken: true,
     });
   }, []);
 
@@ -58,6 +61,7 @@ export default function LoginScreen() {
 
       if (isSuccessResponse(response)) {
         const { idToken } = response.data;
+        console.log("Google ID Token: ", idToken);
         // Send the ID token to backend and receive JWT token back
         const authResponse = await fetch(`${apiUrl}/api/auth/google`, {
           method: "POST",
@@ -257,21 +261,19 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.dividerContainer}>
-            <Divider style={styles.divider} />
-            <Text variant="titleMedium" style={styles.dividerText}>
-              OR
-            </Text>
-            <Divider style={styles.divider} />
-          </View>
+          {Platform.OS !== "web" ? (
+            <>
+              <View style={styles.dividerContainer}>
+                <Divider style={styles.divider} />
+                <Text variant="titleMedium" style={styles.dividerText}>
+                  OR
+                </Text>
+                <Divider style={styles.divider} />
+              </View>
 
-          {Platform.OS === "web" ? (
-            <Button mode="outlined" onPress={handleGoogleSignIn} style={styles.googleButton} contentStyle={styles.googleButtonContent} icon="google" disabled={isGoogleSigninInProgress} loading={isGoogleSigninInProgress}>
-              {isGoogleSigninInProgress ? "Signing in..." : "Continue with Google"}
-            </Button>
-          ) : (
-            <GoogleSigninButton onPress={handleGoogleSignIn} size={GoogleSigninButton.Size.Wide} color={GoogleSigninButton.Color.Dark} disabled={isGoogleSigninInProgress} />
-          )}
+              <GoogleSigninButton onPress={handleGoogleSignIn} size={GoogleSigninButton.Size.Wide} color={GoogleSigninButton.Color.Dark} disabled={isGoogleSigninInProgress} />
+            </>
+          ) : null}
         </Card.Content>
       </Card>
     </ScrollView>
@@ -353,14 +355,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.7,
     textDecorationLine: "underline",
-  },
-  googleButton: {
-    borderRadius: 8,
-    marginBottom: 20,
-    borderColor: "#4285f4",
-    borderWidth: 1,
-  },
-  googleButtonContent: {
-    height: 48,
   },
 });

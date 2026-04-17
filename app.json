@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fairshare",
+      "bundleIdentifier": "com.thetwai.fairshare",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -20,7 +20,7 @@
         "foregroundImage": "./assets/images/playstore-icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.fairshare",
+      "package": "com.thetwai.fairshare",
       "versionCode": 1
     },
     "web": {
