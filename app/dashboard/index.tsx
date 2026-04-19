@@ -92,10 +92,17 @@ export default function TasksScreen() {
     }));
   };
 
+  const parseUtcDate = (value?: string | null) => {
+    if (!value) return null;
+
+    const normalizedValue = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
+    const parsedDate = new Date(normalizedValue);
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+  };
+
   const formatDateTime = (value?: string | null) => {
-    if (!value) return "N/A";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
+    const date = parseUtcDate(value);
+    if (!date) return "N/A";
 
     return date.toLocaleString(undefined, {
       year: "numeric",
@@ -401,7 +408,11 @@ export default function TasksScreen() {
   };
 
   // Sort posted tasks by newest first (assignedDate descending)
-  const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => new Date(b.autoAssignAt).getTime() - new Date(a.autoAssignAt).getTime());
+  const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => {
+    const bTime = parseUtcDate(b.autoAssignAt)?.getTime() ?? 0;
+    const aTime = parseUtcDate(a.autoAssignAt)?.getTime() ?? 0;
+    return bTime - aTime;
+  });
 
   const tabOptions = [
     { value: "availableTasks", label: "Available Tasks" },

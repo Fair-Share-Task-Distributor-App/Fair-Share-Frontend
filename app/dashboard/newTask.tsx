@@ -56,21 +56,8 @@ export default function NewTaskScreen() {
     return new Date(base.getFullYear(), base.getMonth(), base.getDate(), picked.getHours(), picked.getMinutes(), 0, 0);
   };
 
-  const toIsoWithOffset = (value: Date) => {
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, "0");
-    const day = String(value.getDate()).padStart(2, "0");
-    const hours = String(value.getHours()).padStart(2, "0");
-    const minutes = String(value.getMinutes()).padStart(2, "0");
-    const seconds = String(value.getSeconds()).padStart(2, "0");
-
-    const offsetMinutes = -value.getTimezoneOffset();
-    const sign = offsetMinutes >= 0 ? "+" : "-";
-    const absOffsetMinutes = Math.abs(offsetMinutes);
-    const offsetHours = String(Math.floor(absOffsetMinutes / 60)).padStart(2, "0");
-    const offsetMins = String(absOffsetMinutes % 60).padStart(2, "0");
-
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${sign}${offsetHours}:${offsetMins}`;
+  const toIsoFormatInUTCTime = (value: Date) => {
+    return value.toISOString();
   };
 
   const openPicker = (field: DateField, mode: "date" | "time") => {
@@ -146,8 +133,8 @@ export default function NewTaskScreen() {
 
     try {
       setIsSubmitting(true);
-      const dueAt = form.dueAt ? toIsoWithOffset(form.dueAt) : undefined;
-      const autoAssignAt = form.autoAssignAt ? toIsoWithOffset(form.autoAssignAt) : undefined;
+      const dueAt = form.dueAt ? toIsoFormatInUTCTime(form.dueAt) : undefined;
+      const autoAssignAt = form.autoAssignAt ? toIsoFormatInUTCTime(form.autoAssignAt) : undefined;
       const token = await SecureStore.getItemAsync("JWT_TOKEN");
       const response = await fetch(`${apiUrl}/api/Task`, {
         method: "POST",
