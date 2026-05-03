@@ -1,11 +1,13 @@
 import { useUserStore } from "@/stores/user-store";
+import { disableCalendarSync } from "@/utils/googleCalendarSync";
 import { Slider } from "@miblanchard/react-native-slider";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { Appbar, Button, Card, Dialog, FAB, IconButton, Menu, Portal, SegmentedButtons, Switch, Text, TextInput, useTheme } from "react-native-paper";
+import { Appbar, Button, Card, Dialog, FAB, IconButton, Menu, Portal, SegmentedButtons, Text, TextInput, useTheme } from "react-native-paper";
 
 const cardTitleFontFamily = Platform.select({
   ios: "System",
@@ -30,10 +32,6 @@ export default function TasksScreen() {
   const [isSubmittingRatings, setIsSubmittingRatings] = useState(false);
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, number>>({});
   const [ratingEditorsOpen, setRatingEditorsOpen] = useState<Record<string, boolean>>({});
-  const [isInviteDialogVisible, setIsInviteDialogVisible] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteEmailError, setInviteEmailError] = useState("");
-  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
   const [isEditDialogVisible, setIsEditDialogVisible] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -42,11 +40,35 @@ export default function TasksScreen() {
   const [editFormError, setEditFormError] = useState("");
   const [isSubmittingTaskEdit, setIsSubmittingTaskEdit] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
-  const [isCalendarSyncDialogVisible, setIsCalendarSyncDialogVisible] = useState(false);
-  const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(false);
-  const teamName = useUserStore((state) => state.teamName);
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const clearUserProfile = useUserStore((s) => s.clearUserProfile);
+
+  const handleSignOut = async () => {
+    try {
+      // Disable calendar sync and clear any Google state
+      await disableCalendarSync();
+
+      // Try to revoke Google access and sign out (ignore errors)
+      try {
+        await GoogleSignin.hasPlayServices();
+        await GoogleSignin.revokeAccess();
+        await GoogleSignin.signOut();
+      } catch (err) {
+        console.warn("Google sign-out/revoke failed:", err);
+      }
+
+      // Clear stored JWT and local profile
+      await SecureStore.deleteItemAsync("JWT_TOKEN");
+      clearUserProfile();
+
+      // Navigate back to auth/login flow
+      router.replace("/(tabs)");
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      Alert.alert("Sign out failed", "Please try again.");
+    }
+  };
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -330,83 +352,6 @@ export default function TasksScreen() {
     ]);
   };
 
-  const openInviteDialog = () => {
-    setInviteEmail("");
-    setInviteEmailError("");
-    setIsInviteDialogVisible(true);
-  };
-
-  const closeInviteDialog = () => {
-    if (isSubmittingInvite) return;
-    setIsInviteDialogVisible(false);
-    setInviteEmailError("");
-  };
-
-  const submitInvite = async () => {
-    const trimmedEmail = inviteEmail.trim();
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const requestedEmails = trimmedEmail
-      .split(/[\n,;]+/)
-      .map((email) => email.trim())
-      .filter((email) => email.length > 0);
-
-    if (requestedEmails.length === 0) {
-      setInviteEmailError("Email is required.");
-      return;
-    }
-
-    const invalidEmail = requestedEmails.find((email) => !emailPattern.test(email));
-    if (invalidEmail) {
-      setInviteEmailError(`Enter a valid email address: ${invalidEmail}`);
-      return;
-    }
-
-    try {
-      setIsSubmittingInvite(true);
-
-      const token = await SecureStore.getItemAsync("JWT_TOKEN");
-      const response = await fetch(`${apiUrl}/api/Team/addMembers`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ Emails: requestedEmails }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new Error(errorText || "Unable to add this team member right now.");
-      }
-
-      const addedMembers = (await response.json().catch(() => [])) as { email?: string | null }[];
-      const successfulEmails = new Set(addedMembers.map((member) => member.email?.trim().toLowerCase()).filter((email): email is string => Boolean(email)));
-      const succeeded = requestedEmails.filter((email) => successfulEmails.has(email.toLowerCase()));
-      const failed = requestedEmails.filter((email) => !successfulEmails.has(email.toLowerCase()));
-
-      setIsInviteDialogVisible(false);
-      setInviteEmail("");
-      setInviteEmailError("");
-
-      const summaryLines = [`Successful: ${succeeded.length > 0 ? succeeded.join(", ") : "None"}`, ...(failed.length > 0 ? [`Failed: ${failed.join(", ")}`] : [])];
-
-      Alert.alert(`Add members to ${teamName || "team"}`, summaryLines.join("\n"));
-    } catch (error) {
-      Alert.alert("Add failed", error instanceof Error ? error.message : "Unable to add this team member right now.");
-    } finally {
-      setIsSubmittingInvite(false);
-    }
-  };
-
-  const openCalendarSyncDialog = () => {
-    setIsCalendarSyncDialogVisible(true);
-  };
-
-  const closeCalendarSyncDialog = () => {
-    setIsCalendarSyncDialogVisible(false);
-  };
-
   // Sort posted tasks by newest first (assignedDate descending)
   const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => {
     const bTime = parseUtcDate(b.autoAssignAt)?.getTime() ?? 0;
@@ -520,11 +465,8 @@ export default function TasksScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header style={{ marginLeft: "auto" }}>
-        <Appbar.Content title="Dashboard" titleStyle={styles.teamNameTitle} />
-        <Appbar.Action icon="account-plus" onPress={openInviteDialog} />
-        <Appbar.Action icon="account-group" onPress={() => router.push("/dashboard/team")} />
-        <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
-        <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
+        <Appbar.Content title="Home" titleStyle={styles.teamNameTitle} />
+        <Appbar.Action icon="logout" onPress={handleSignOut} />
       </Appbar.Header>
 
       <View style={styles.content}>
@@ -535,7 +477,7 @@ export default function TasksScreen() {
 
         {/* My Tasks Tab */}
         {activeTab === "myTasks" && (
-          <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.tabContent} contentContainerStyle={styles.defaultTabContent} showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text variant="bodyMedium" style={styles.sectionSubtitle}>
@@ -744,19 +686,18 @@ export default function TasksScreen() {
           </ScrollView>
         )}
 
-        {activeTab === "availableTasks" && (
+        {activeTab === "availableTasks" && hasPendingRatingChanges && (
           <View style={styles.submitChangesDock}>
-            <Button mode="contained" onPress={() => void submitRatingChanges()} style={styles.submitChangesButton} contentStyle={styles.submitChangesButtonContent} disabled={!hasPendingRatingChanges || isSubmittingRatings} loading={isSubmittingRatings}>
-              Submit All Changes
+            <Button mode="contained" onPress={() => void submitRatingChanges()} style={styles.submitChangesButton} contentStyle={styles.submitChangesButtonContent} disabled={isSubmittingRatings} loading={isSubmittingRatings}>
+              Submit Ratings
             </Button>
           </View>
         )}
       </View>
 
       {/* Create new task */}
-      <View style={[styles.fabContainer, activeTab === "availableTasks" && styles.fabContainerRaised]}>
+      <View style={[styles.fabContainer, styles.fabContainerRaised, activeTab === "availableTasks" && hasPendingRatingChanges && styles.fabContainerWithSubmit]}>
         <View style={styles.fabStack}>
-          <FAB icon="calendar" color="#FFFFFF" customSize={64} style={[styles.fabMain, styles.calendarFab, { backgroundColor: theme.colors.secondary }]} onPress={openCalendarSyncDialog} />
           <FAB icon={"plus"} color="#FFFFFF" customSize={64} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
         </View>
       </View>
@@ -779,63 +720,6 @@ export default function TasksScreen() {
             </Button>
           </Dialog.Actions>
         </Dialog>
-
-        <Dialog visible={isInviteDialogVisible} onDismiss={closeInviteDialog}>
-          <Dialog.Title>Add Team Member</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={styles.inviteDialogCopy}>
-              Enter the email address of the person you want to add.
-            </Text>
-            <TextInput
-              mode="outlined"
-              label="Email"
-              value={inviteEmail}
-              onChangeText={(text) => {
-                setInviteEmail(text);
-                if (inviteEmailError) {
-                  setInviteEmailError("");
-                }
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              error={Boolean(inviteEmailError)}
-            />
-            {inviteEmailError ? <Text style={styles.inviteDialogError}>{inviteEmailError}</Text> : null}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={closeInviteDialog} disabled={isSubmittingInvite}>
-              Cancel
-            </Button>
-            <Button mode="contained" onPress={() => void submitInvite()} loading={isSubmittingInvite} disabled={isSubmittingInvite}>
-              Add
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-
-        <Dialog visible={isCalendarSyncDialogVisible} onDismiss={closeCalendarSyncDialog}>
-          <Dialog.Title>Google Calendar Sync</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={styles.calendarSyncDialogCopy}>
-              Turn this on to track your assigned tasks in Google Calendar.
-            </Text>
-            <View style={styles.calendarSyncToggleRow}>
-              <View style={styles.calendarSyncToggleCopy}>
-                <Text variant="bodyMedium" style={styles.calendarSyncToggleTitle}>
-                  Sync is {isCalendarSyncEnabled ? "on" : "off"}
-                </Text>
-                <Text variant="bodySmall" style={styles.calendarSyncToggleSubtitle}>
-                  Use the switch to turn Google Calendar sync on or off.
-                </Text>
-              </View>
-              <Switch value={isCalendarSyncEnabled} onValueChange={setIsCalendarSyncEnabled} />
-            </View>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={closeCalendarSyncDialog}>Done</Button>
-          </Dialog.Actions>
-        </Dialog>
       </Portal>
     </View>
   );
@@ -853,43 +737,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  calendarFab: {
-    elevation: 6,
-  },
-  calendarSyncDialogCopy: {
-    marginBottom: 16,
-    opacity: 0.8,
-    lineHeight: 20,
-  },
-  calendarSyncToggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  calendarSyncToggleCopy: {
-    flex: 1,
-  },
-  calendarSyncToggleTitle: {
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  calendarSyncToggleSubtitle: {
-    opacity: 0.75,
-  },
   teamNameTitle: {
     fontSize: 25,
     fontWeight: "700",
     letterSpacing: 0.4,
     marginRight: 8,
-  },
-  inviteDialogCopy: {
-    marginBottom: 12,
-    opacity: 0.8,
-  },
-  inviteDialogError: {
-    marginTop: 8,
-    color: "#B3261E",
   },
   editDialogField: {
     marginTop: 10,
@@ -908,8 +760,11 @@ const styles = StyleSheet.create({
   tabContent: {
     flex: 1,
   },
+  defaultTabContent: {
+    paddingBottom: 128,
+  },
   availableTasksContent: {
-    paddingBottom: 96,
+    paddingBottom: 156,
   },
   section: {
     paddingHorizontal: 16,
@@ -1121,7 +976,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 16,
+    bottom: 88,
     zIndex: 20,
   },
   fabContainer: {
@@ -1132,7 +987,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   fabContainerRaised: {
-    bottom: 74,
+    bottom: 78,
+  },
+  fabContainerWithSubmit: {
+    bottom: 142,
   },
   fabMain: {
     // Background color is bound to theme.colors.primary at render time.

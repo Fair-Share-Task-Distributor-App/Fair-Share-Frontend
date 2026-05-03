@@ -2,11 +2,11 @@
   "expo": {
     "name": "Task Distributor: Fair Share",
     "slug": "task-distributor-fair-share",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/playstore-icon.png",
     "scheme": "frontend",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.thetwai.fairshare",
@@ -20,8 +20,7 @@
         "foregroundImage": "./assets/images/playstore-icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.thetwai.fairshare",
-      "versionCode": 1
+      "package": "com.thetwai.fairshare"
     },
     "web": {
       "output": "static",
@@ -37,10 +36,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
+          "backgroundColor": "#ffffff"
         }
       ],
       "expo-secure-store",

@@ -171,7 +171,6 @@ export default function NewTaskScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Create Task" titleStyle={styles.teamNameTitle} />
       </Appbar.Header>
 
