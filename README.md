@@ -4,7 +4,6 @@
 [Play Store Link](https://play.google.com/store/apps/details?id=com.thetwai.fairshare)
 
 ## Overview
-A mobile application that automatically distribute tasks among team members in a fair and balanced way. It aims to ensure equal workload while assigning based on each individual's preference. 
 
 This is the frontend of the app, check out the backend for more information about api.
 https://github.com/Fair-Share-Task-Distributor-App/Fair-Share-Backend 
@@ -20,7 +19,9 @@ https://github.com/Fair-Share-Task-Distributor-App/Fair-Share-Backend
 4. (Optional) Sync with Calendar: Connect to Google Calendar to track tasks easier.
 
 ## Tech Stack
+
 ### Frontend
+
 - React Native
 - TypeScript
 - Expo
@@ -29,17 +30,22 @@ https://github.com/Fair-Share-Task-Distributor-App/Fair-Share-Backend
 - C#
 - ASP.NET CORE MVC
 - Entity Framework Core
+- Azure Service Bus
+- Azure Functions
 
 ### Database
+
 - PostgreSQL
 
 ### Cloud & DevOps
+
 - Azure (containerized deployment)
 - Expo Application Services (EAS)
 
-
 ## License
+
 This project is licensed under the MIT License.
 
 ## Author
+
 Developed by Thet-Wai-123
