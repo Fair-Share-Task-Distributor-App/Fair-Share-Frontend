@@ -53,7 +53,11 @@ export default function DashboardLayout() {
       }
     } else {
       // Disable calendar sync
-      await disableCalendarSync();
+      try {
+        await disableCalendarSync(apiUrl!);
+      } catch (err) {
+        console.warn("Disconnect call failed:", err);
+      }
       setIsCalendarSyncEnabled(false);
       Alert.alert("Success", "Google Calendar sync has been disabled.");
     }

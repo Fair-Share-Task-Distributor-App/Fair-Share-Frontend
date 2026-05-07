@@ -1,5 +1,4 @@
 import { useUserStore } from "@/stores/user-store";
-import { disableCalendarSync } from "@/utils/googleCalendarSync";
 import { Slider } from "@miblanchard/react-native-slider";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
@@ -46,17 +45,9 @@ export default function TasksScreen() {
 
   const handleSignOut = async () => {
     try {
-      // Disable calendar sync and clear any Google state
-      await disableCalendarSync();
-
-      // Try to revoke Google access and sign out (ignore errors)
-      try {
-        await GoogleSignin.hasPlayServices();
-        await GoogleSignin.revokeAccess();
-        await GoogleSignin.signOut();
-      } catch (err) {
-        console.warn("Google sign-out/revoke failed:", err);
-      }
+      await GoogleSignin.hasPlayServices();
+      await GoogleSignin.revokeAccess();
+      await GoogleSignin.signOut();
 
       // Clear stored JWT and local profile
       await SecureStore.deleteItemAsync("JWT_TOKEN");

@@ -5,7 +5,7 @@
     "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/playstore-icon.png",
-    "scheme": "frontend",
+    "scheme": "com.thetwai.fairshare",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,

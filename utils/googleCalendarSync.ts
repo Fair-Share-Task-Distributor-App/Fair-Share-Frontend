@@ -6,7 +6,7 @@ export const initializeGoogleSignIn = () => {
   GoogleSignin.configure({
     webClientId: "73051991942-kb15fu3g5baabfk14tsuo1l7cr22gqrr.apps.googleusercontent.com",
     offlineAccess: true,
-    scopes: ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/calendar.events"],
+    scopes: ["https://www.googleapis.com/auth/calendar.events"],
   });
 };
 
@@ -26,11 +26,12 @@ export const syncGoogleCalendar = async (apiUrl: string): Promise<boolean> => {
       }
 
       console.log("Server Auth Code: ", serverAuthCode);
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
 
       // Send authCode to backend for calendar sync
-      const authResponse = await fetch(`${apiUrl}/api/auth/syncGoogleCalendar`, {
+      const authResponse = await fetch(`${apiUrl}/api/calendar/sync`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           authCode: serverAuthCode,
         }),
@@ -76,13 +77,23 @@ export const syncGoogleCalendar = async (apiUrl: string): Promise<boolean> => {
   }
 };
 
-export const disableCalendarSync = async () => {
+export const disableCalendarSync = async (apiUrl: string) => {
   try {
+    const token = await SecureStore.getItemAsync("JWT_TOKEN");
+
+    const response = await fetch(`${apiUrl}/api/calendar/disconnect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      return false;
+    }
     await SecureStore.setItemAsync("CALENDAR_SYNC_ENABLED", "false");
-    // Optionally sign out
-    await GoogleSignin.signOut();
+    return true;
   } catch (error) {
-    console.error("Error disabling calendar sync:", error);
+    console.error("Error calling calendar disconnect:", error);
+    return false;
   }
 };
 
