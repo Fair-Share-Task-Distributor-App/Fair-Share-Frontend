@@ -19,6 +19,8 @@
       "ios": {
         "resourceClass": "m1-medium"
       },
+      "android": {
+        "autoIncrement": true      },
       "channel": "production"
     }
   },

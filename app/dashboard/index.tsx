@@ -1,5 +1,6 @@
 import { useUserStore } from "@/stores/user-store";
 import { Slider } from "@miblanchard/react-native-slider";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -30,10 +31,6 @@ export default function TasksScreen() {
   const [isSubmittingRatings, setIsSubmittingRatings] = useState(false);
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, number>>({});
   const [ratingEditorsOpen, setRatingEditorsOpen] = useState<Record<string, boolean>>({});
-  const [isInviteDialogVisible, setIsInviteDialogVisible] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteEmailError, setInviteEmailError] = useState("");
-  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
   const [isEditDialogVisible, setIsEditDialogVisible] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -42,9 +39,27 @@ export default function TasksScreen() {
   const [editFormError, setEditFormError] = useState("");
   const [isSubmittingTaskEdit, setIsSubmittingTaskEdit] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
-  const teamName = useUserStore((state) => state.teamName);
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const clearUserProfile = useUserStore((s) => s.clearUserProfile);
+
+  const handleSignOut = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      await GoogleSignin.revokeAccess();
+      await GoogleSignin.signOut();
+
+      // Clear stored JWT and local profile
+      await SecureStore.deleteItemAsync("JWT_TOKEN");
+      clearUserProfile();
+
+      // Navigate back to auth/login flow
+      router.replace("/(tabs)");
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      Alert.alert("Sign out failed", "Please try again.");
+    }
+  };
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -90,10 +105,17 @@ export default function TasksScreen() {
     }));
   };
 
+  const parseUtcDate = (value?: string | null) => {
+    if (!value) return null;
+
+    const normalizedValue = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
+    const parsedDate = new Date(normalizedValue);
+    return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+  };
+
   const formatDateTime = (value?: string | null) => {
-    if (!value) return "N/A";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
+    const date = parseUtcDate(value);
+    if (!date) return "N/A";
 
     return date.toLocaleString(undefined, {
       year: "numeric",
@@ -321,77 +343,12 @@ export default function TasksScreen() {
     ]);
   };
 
-  const openInviteDialog = () => {
-    setInviteEmail("");
-    setInviteEmailError("");
-    setIsInviteDialogVisible(true);
-  };
-
-  const closeInviteDialog = () => {
-    if (isSubmittingInvite) return;
-    setIsInviteDialogVisible(false);
-    setInviteEmailError("");
-  };
-
-  const submitInvite = async () => {
-    const trimmedEmail = inviteEmail.trim();
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const requestedEmails = trimmedEmail
-      .split(/[\n,;]+/)
-      .map((email) => email.trim())
-      .filter((email) => email.length > 0);
-
-    if (requestedEmails.length === 0) {
-      setInviteEmailError("Email is required.");
-      return;
-    }
-
-    const invalidEmail = requestedEmails.find((email) => !emailPattern.test(email));
-    if (invalidEmail) {
-      setInviteEmailError(`Enter a valid email address: ${invalidEmail}`);
-      return;
-    }
-
-    try {
-      setIsSubmittingInvite(true);
-
-      const token = await SecureStore.getItemAsync("JWT_TOKEN");
-      const response = await fetch(`${apiUrl}/api/Team/addMembers`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ Emails: requestedEmails }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new Error(errorText || "Unable to add this team member right now.");
-      }
-
-      const addedMembers = (await response.json().catch(() => [])) as { email?: string | null }[];
-      const successfulEmails = new Set(addedMembers.map((member) => member.email?.trim().toLowerCase()).filter((email): email is string => Boolean(email)));
-      const succeeded = requestedEmails.filter((email) => successfulEmails.has(email.toLowerCase()));
-      const failed = requestedEmails.filter((email) => !successfulEmails.has(email.toLowerCase()));
-
-      setIsInviteDialogVisible(false);
-      setInviteEmail("");
-      setInviteEmailError("");
-
-      const summaryLines = [`Successful: ${succeeded.length > 0 ? succeeded.join(", ") : "None"}`, ...(failed.length > 0 ? [`Failed: ${failed.join(", ")}`] : [])];
-
-      Alert.alert(`Add members to ${teamName || "team"}`, summaryLines.join("\n"));
-    } catch (error) {
-      Alert.alert("Add failed", error instanceof Error ? error.message : "Unable to add this team member right now.");
-    } finally {
-      setIsSubmittingInvite(false);
-    }
-  };
-
   // Sort posted tasks by newest first (assignedDate descending)
-  const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => new Date(b.autoAssignAt).getTime() - new Date(a.autoAssignAt).getTime());
+  const sortedUnassignedTasks = [...unassignedTasks].sort((a, b) => {
+    const bTime = parseUtcDate(b.autoAssignAt)?.getTime() ?? 0;
+    const aTime = parseUtcDate(a.autoAssignAt)?.getTime() ?? 0;
+    return bTime - aTime;
+  });
 
   const tabOptions = [
     { value: "availableTasks", label: "Available Tasks" },
@@ -499,11 +456,8 @@ export default function TasksScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header style={{ marginLeft: "auto" }}>
-        <Appbar.Content title="Dashboard" titleStyle={styles.teamNameTitle} />
-        <Appbar.Action icon="account-plus" onPress={openInviteDialog} />
-        <Appbar.Action icon="account-group" onPress={() => router.push("/dashboard/team")} />
-        <Appbar.Action icon="account-circle" onPress={() => router.push("/dashboard/profile")} />
-        <Appbar.Action icon="logout" onPress={() => router.replace("/(tabs)")} />
+        <Appbar.Content title="Home" titleStyle={styles.teamNameTitle} />
+        <Appbar.Action icon="logout" onPress={handleSignOut} />
       </Appbar.Header>
 
       <View style={styles.content}>
@@ -514,7 +468,7 @@ export default function TasksScreen() {
 
         {/* My Tasks Tab */}
         {activeTab === "myTasks" && (
-          <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.tabContent} contentContainerStyle={styles.defaultTabContent} showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text variant="bodyMedium" style={styles.sectionSubtitle}>
@@ -723,18 +677,20 @@ export default function TasksScreen() {
           </ScrollView>
         )}
 
-        {activeTab === "availableTasks" && (
+        {activeTab === "availableTasks" && hasPendingRatingChanges && (
           <View style={styles.submitChangesDock}>
-            <Button mode="contained" onPress={() => void submitRatingChanges()} style={styles.submitChangesButton} contentStyle={styles.submitChangesButtonContent} disabled={!hasPendingRatingChanges || isSubmittingRatings} loading={isSubmittingRatings}>
-              Submit All Changes
+            <Button mode="contained" onPress={() => void submitRatingChanges()} style={styles.submitChangesButton} contentStyle={styles.submitChangesButtonContent} disabled={isSubmittingRatings} loading={isSubmittingRatings}>
+              Submit Ratings
             </Button>
           </View>
         )}
       </View>
 
       {/* Create new task */}
-      <View style={[styles.fabContainer, activeTab === "availableTasks" && styles.fabContainerRaised]}>
-        <FAB icon={"plus"} color="#FFFFFF" customSize={64} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
+      <View style={[styles.fabContainer, styles.fabContainerRaised, activeTab === "availableTasks" && hasPendingRatingChanges && styles.fabContainerWithSubmit]}>
+        <View style={styles.fabStack}>
+          <FAB icon={"plus"} color="#FFFFFF" customSize={64} style={[styles.fabMain, { backgroundColor: theme.colors.primary }]} onPress={() => router.push("/dashboard/newTask")} />
+        </View>
       </View>
 
       <Portal>
@@ -755,40 +711,6 @@ export default function TasksScreen() {
             </Button>
           </Dialog.Actions>
         </Dialog>
-
-        <Dialog visible={isInviteDialogVisible} onDismiss={closeInviteDialog}>
-          <Dialog.Title>Add Team Member</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium" style={styles.inviteDialogCopy}>
-              Enter the email address of the person you want to add.
-            </Text>
-            <TextInput
-              mode="outlined"
-              label="Email"
-              value={inviteEmail}
-              onChangeText={(text) => {
-                setInviteEmail(text);
-                if (inviteEmailError) {
-                  setInviteEmailError("");
-                }
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              error={Boolean(inviteEmailError)}
-            />
-            {inviteEmailError ? <Text style={styles.inviteDialogError}>{inviteEmailError}</Text> : null}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={closeInviteDialog} disabled={isSubmittingInvite}>
-              Cancel
-            </Button>
-            <Button mode="contained" onPress={() => void submitInvite()} loading={isSubmittingInvite} disabled={isSubmittingInvite}>
-              Add
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
       </Portal>
     </View>
   );
@@ -802,19 +724,15 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  fabStack: {
+    alignItems: "center",
+    gap: 12,
+  },
   teamNameTitle: {
     fontSize: 25,
     fontWeight: "700",
     letterSpacing: 0.4,
     marginRight: 8,
-  },
-  inviteDialogCopy: {
-    marginBottom: 12,
-    opacity: 0.8,
-  },
-  inviteDialogError: {
-    marginTop: 8,
-    color: "#B3261E",
   },
   editDialogField: {
     marginTop: 10,
@@ -833,8 +751,11 @@ const styles = StyleSheet.create({
   tabContent: {
     flex: 1,
   },
+  defaultTabContent: {
+    paddingBottom: 128,
+  },
   availableTasksContent: {
-    paddingBottom: 96,
+    paddingBottom: 156,
   },
   section: {
     paddingHorizontal: 16,
@@ -1046,7 +967,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 16,
+    bottom: 88,
     zIndex: 20,
   },
   fabContainer: {
@@ -1057,7 +978,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   fabContainerRaised: {
-    bottom: 74,
+    bottom: 78,
+  },
+  fabContainerWithSubmit: {
+    bottom: 142,
   },
   fabMain: {
     // Background color is bound to theme.colors.primary at render time.

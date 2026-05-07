@@ -1,8 +1,9 @@
 import { GoogleSignin, GoogleSigninButton, isErrorWithCode, isSuccessResponse, statusCodes } from "@react-native-google-signin/google-signin";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useState } from "react";
-import { Alert, Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Image, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, Card, Divider, Text, TextInput } from "react-native-paper";
 
 import { useUserStore } from "@/stores/user-store";
@@ -44,9 +45,8 @@ export default function LoginScreen() {
   // Configure Google Sign-In
   React.useEffect(() => {
     GoogleSignin.configure({
-      webClientId: "73051991942-te7a0pbmpi0okobhd112pph3pdt488di.apps.googleusercontent.com",
+      webClientId: "73051991942-kb15fu3g5baabfk14tsuo1l7cr22gqrr.apps.googleusercontent.com",
       offlineAccess: true,
-      forceCodeForRefreshToken: true,
     });
   }, []);
 
@@ -58,6 +58,7 @@ export default function LoginScreen() {
 
       if (isSuccessResponse(response)) {
         const { idToken } = response.data;
+        console.log("Google ID Token: ", idToken);
         // Send the ID token to backend and receive JWT token back
         const authResponse = await fetch(`${apiUrl}/api/auth/google`, {
           method: "POST",
@@ -153,7 +154,6 @@ export default function LoginScreen() {
       }
       const authData = (await authResponse.json()) as AuthResponseData;
       const { token, isNewUser } = authData;
-      console.log("Received JWT token: ", token);
       await SecureStore.setItemAsync("JWT_TOKEN", token);
       setUserProfile({
         name: authData.name,
@@ -167,33 +167,52 @@ export default function LoginScreen() {
     }
   };
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.header}>
-            <Image source={require("../../assets/images/playstore-icon.png")} style={styles.logo} resizeMode="contain" />
-            <Text variant="titleMedium" style={styles.subtitle}>
-              Welcome! Please {isSignUp ? "create your account" : "sign in to continue"}
-            </Text>
-          </View>
+    <LinearGradient colors={["#b2d7fc", "#9df8ea", "#ffddb0"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradient}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Image source={require("../../assets/images/transparent-icon.png")} style={styles.logo} resizeMode="contain" />
+        <Card mode="contained" style={styles.card}>
+          <Card.Content>
+            <View style={styles.header}>
+              <Text variant="titleMedium" style={styles.subtitle}>
+                Welcome! Please {isSignUp ? "create your account" : "sign in to continue"}
+              </Text>
+            </View>
 
-          <View style={styles.inputContainer}>
-            {isSignUp ? (
-              <>
-                <View>
-                  <TextInput
-                    label="Username"
-                    value={name}
-                    onChangeText={(text) => {
-                      setName(text);
-                      if (nameError) setNameError("");
-                    }}
-                    mode="outlined"
-                    style={[styles.input, nameError ? styles.inputError : null]}
-                    left={<TextInput.Icon icon="account" />}
-                  />
-                  {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
-                </View>
+            <View style={styles.inputContainer}>
+              {isSignUp ? (
+                <>
+                  <View>
+                    <TextInput
+                      label="Username"
+                      value={name}
+                      onChangeText={(text) => {
+                        setName(text);
+                        if (nameError) setNameError("");
+                      }}
+                      mode="outlined"
+                      style={[styles.input, nameError ? styles.inputError : null]}
+                      left={<TextInput.Icon icon="account" />}
+                    />
+                    {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+                  </View>
+                  <View>
+                    <TextInput
+                      label="Email"
+                      value={email}
+                      onChangeText={(text) => {
+                        setEmail(text);
+                        if (emailError) setEmailError("");
+                      }}
+                      mode="outlined"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      style={[styles.input, emailError ? styles.inputError : null]}
+                      left={<TextInput.Icon icon="email" />}
+                    />
+                    {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+                  </View>
+                </>
+              ) : (
                 <View>
                   <TextInput
                     label="Email"
@@ -203,95 +222,73 @@ export default function LoginScreen() {
                       if (emailError) setEmailError("");
                     }}
                     mode="outlined"
-                    keyboardType="email-address"
                     autoCapitalize="none"
                     style={[styles.input, emailError ? styles.inputError : null]}
-                    left={<TextInput.Icon icon="email" />}
+                    left={<TextInput.Icon icon="account" />}
                   />
                   {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
                 </View>
-              </>
-            ) : (
+              )}
+
               <View>
                 <TextInput
-                  label="Email"
-                  value={email}
+                  label="Password"
+                  value={password}
                   onChangeText={(text) => {
-                    setEmail(text);
-                    if (emailError) setEmailError("");
+                    setPassword(text);
+                    if (passwordError) setPasswordError("");
                   }}
                   mode="outlined"
-                  autoCapitalize="none"
-                  style={[styles.input, emailError ? styles.inputError : null]}
-                  left={<TextInput.Icon icon="account" />}
+                  secureTextEntry={!showPassword}
+                  style={[styles.input, passwordError ? styles.inputError : null]}
+                  left={<TextInput.Icon icon="lock" />}
+                  right={<TextInput.Icon icon={showPassword ? "eye-off" : "eye"} onPress={() => setShowPassword(!showPassword)} />}
                 />
-                {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+                {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
               </View>
-            )}
-
-            <View>
-              <TextInput
-                label="Password"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (passwordError) setPasswordError("");
-                }}
-                mode="outlined"
-                secureTextEntry={!showPassword}
-                style={[styles.input, passwordError ? styles.inputError : null]}
-                left={<TextInput.Icon icon="lock" />}
-                right={<TextInput.Icon icon={showPassword ? "eye-off" : "eye"} onPress={() => setShowPassword(!showPassword)} />}
-              />
-              {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
             </View>
-          </View>
 
-          <Button mode="contained" onPress={handleSubmit} style={styles.submitButton} contentStyle={styles.buttonContent}>
-            {isSignUp ? "Create Account" : "Sign In"}
-          </Button>
-
-          <View style={styles.accountSwitchContainer}>
-            <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-              <Text style={styles.accountSwitchText}>{isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.dividerContainer}>
-            <Divider style={styles.divider} />
-            <Text variant="titleMedium" style={styles.dividerText}>
-              OR
-            </Text>
-            <Divider style={styles.divider} />
-          </View>
-
-          {Platform.OS === "web" ? (
-            <Button mode="outlined" onPress={handleGoogleSignIn} style={styles.googleButton} contentStyle={styles.googleButtonContent} icon="google" disabled={isGoogleSigninInProgress} loading={isGoogleSigninInProgress}>
-              {isGoogleSigninInProgress ? "Signing in..." : "Continue with Google"}
+            <Button mode="contained" onPress={handleSubmit} style={styles.submitButton} contentStyle={styles.buttonContent}>
+              {isSignUp ? "Create Account" : "Sign In"}
             </Button>
-          ) : (
+
+            <View style={styles.accountSwitchContainer}>
+              <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+                <Text style={styles.accountSwitchText}>{isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.dividerContainer}>
+              <Divider style={styles.divider} />
+              <Text variant="titleMedium" style={styles.dividerText}>
+                OR
+              </Text>
+              <Divider style={styles.divider} />
+            </View>
             <GoogleSigninButton onPress={handleGoogleSignIn} size={GoogleSigninButton.Size.Wide} color={GoogleSigninButton.Color.Dark} disabled={isGoogleSigninInProgress} />
-          )}
-        </Card.Content>
-      </Card>
-    </ScrollView>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  gradient: {
     flex: 1,
+    alignItems: "center",
+  },
+  container: {
+    marginTop: 150,
     justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   card: {
-    flex: 1,
-    elevation: 4,
-    borderRadius: 12,
+    borderRadius: 0,
     justifyContent: "center", // vertical centering
     alignItems: "center", // horizontal centering
-    paddingTop: 30,
-    backgroundColor: "#fafbfc",
+    backgroundColor: "transparent",
   },
   header: {
     alignItems: "center",
@@ -350,17 +347,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   accountSwitchText: {
-    fontSize: 12,
+    fontSize: 16,
     opacity: 0.7,
     textDecorationLine: "underline",
-  },
-  googleButton: {
-    borderRadius: 8,
-    marginBottom: 20,
-    borderColor: "#4285f4",
-    borderWidth: 1,
-  },
-  googleButtonContent: {
-    height: 48,
   },
 });

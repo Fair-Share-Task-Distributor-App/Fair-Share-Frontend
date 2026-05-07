@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
-import { Appbar, Button, Card, Text } from "react-native-paper";
+import { Appbar, Button, Card, Dialog, Portal, Text, TextInput } from "react-native-paper";
 
 import { useUserStore } from "@/stores/user-store";
 
@@ -26,6 +26,10 @@ export default function TeamScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isLeavingTeam, setIsLeavingTeam] = useState(false);
+  const [isInviteDialogVisible, setIsInviteDialogVisible] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmailError, setInviteEmailError] = useState("");
+  const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
 
   const hasMembers = useMemo(() => (team?.members?.length ?? 0) > 0, [team]);
 
@@ -122,10 +126,82 @@ export default function TeamScreen() {
     ]);
   };
 
+  const openInviteDialog = () => {
+    setInviteEmail("");
+    setInviteEmailError("");
+    setIsInviteDialogVisible(true);
+  };
+
+  const closeInviteDialog = () => {
+    if (isSubmittingInvite) return;
+    setIsInviteDialogVisible(false);
+    setInviteEmailError("");
+  };
+
+  const submitInvite = async () => {
+    const trimmedEmail = inviteEmail.trim();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const requestedEmails = trimmedEmail
+      .split(/[\n,;]+/)
+      .map((email) => email.trim())
+      .filter((email) => email.length > 0);
+
+    if (requestedEmails.length === 0) {
+      setInviteEmailError("Email is required.");
+      return;
+    }
+
+    const invalidEmail = requestedEmails.find((email) => !emailPattern.test(email));
+    if (invalidEmail) {
+      setInviteEmailError(`Enter a valid email address: ${invalidEmail}`);
+      return;
+    }
+
+    if (!apiUrl) {
+      Alert.alert("Add failed", "API URL is not configured.");
+      return;
+    }
+
+    try {
+      setIsSubmittingInvite(true);
+
+      const token = await SecureStore.getItemAsync("JWT_TOKEN");
+      const response = await fetch(`${apiUrl}/api/Team/addMembers`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ Emails: requestedEmails }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "");
+        throw new Error(errorText || "Unable to add team members right now.");
+      }
+
+      const addedMembers = (await response.json().catch(() => [])) as { email?: string | null }[];
+      const successfulEmails = new Set(addedMembers.map((member) => member.email?.trim().toLowerCase()).filter((email): email is string => Boolean(email)));
+      const succeeded = requestedEmails.filter((email) => successfulEmails.has(email.toLowerCase()));
+      const failed = requestedEmails.filter((email) => !successfulEmails.has(email.toLowerCase()));
+      const summaryLines = [`Successful: ${succeeded.length > 0 ? succeeded.join(", ") : "None"}`, ...(failed.length > 0 ? [`Failed: ${failed.join(", ")}`] : [])];
+
+      setIsInviteDialogVisible(false);
+      setInviteEmail("");
+      setInviteEmailError("");
+      Alert.alert(`Add members to ${team?.name || "team"}`, summaryLines.join("\n"));
+      await fetchMyTeam(true);
+    } catch (error) {
+      Alert.alert("Add failed", error instanceof Error ? error.message : "Unable to add team members right now.");
+    } finally {
+      setIsSubmittingInvite(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Team" titleStyle={styles.teamNameTitle} />
       </Appbar.Header>
 
@@ -138,6 +214,9 @@ export default function TeamScreen() {
             <Text variant="headlineSmall" style={styles.teamName}>
               {team?.name ?? "-"}
             </Text>
+            <Button mode="contained" icon="account-plus" style={styles.addMemberButton} contentStyle={styles.addMemberButtonContent} onPress={openInviteDialog} disabled={isSubmittingInvite}>
+              Add Team Member
+            </Button>
           </Card.Content>
         </Card>
 
@@ -191,6 +270,43 @@ export default function TeamScreen() {
           Leave Team
         </Button>
       </ScrollView>
+
+      <Portal>
+        <Dialog visible={isInviteDialogVisible} onDismiss={closeInviteDialog}>
+          <Dialog.Title>Add Team Member</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.inviteDialogCopy}>
+              Enter one or more email addresses separated by commas, semicolons, or new lines.
+            </Text>
+            <TextInput
+              mode="outlined"
+              label="Email"
+              value={inviteEmail}
+              onChangeText={(text) => {
+                setInviteEmail(text);
+                if (inviteEmailError) {
+                  setInviteEmailError("");
+                }
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              error={Boolean(inviteEmailError)}
+              disabled={isSubmittingInvite}
+            />
+            {inviteEmailError ? <Text style={styles.inviteDialogError}>{inviteEmailError}</Text> : null}
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={closeInviteDialog} disabled={isSubmittingInvite}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={() => void submitInvite()} loading={isSubmittingInvite} disabled={isSubmittingInvite}>
+              Add
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -210,7 +326,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: 28,
+    paddingBottom: 110,
   },
   teamCard: {
     borderRadius: 12,
@@ -222,6 +338,13 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontWeight: "700",
+  },
+  addMemberButton: {
+    marginTop: 14,
+    borderRadius: 12,
+  },
+  addMemberButtonContent: {
+    minHeight: 46,
   },
   membersCard: {
     borderRadius: 12,
@@ -257,5 +380,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderColor: "#B3261E",
     alignSelf: "flex-start",
+  },
+  inviteDialogCopy: {
+    marginBottom: 12,
+    opacity: 0.8,
+  },
+  inviteDialogError: {
+    marginTop: 8,
+    color: "#B3261E",
   },
 });

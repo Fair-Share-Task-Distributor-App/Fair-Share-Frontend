@@ -1,13 +1,11 @@
-import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { Appbar, Avatar, Card, Text } from "react-native-paper";
 
 type ProfileResponse = {
   name: string;
   email: string;
-  password: string;
   points: number;
   tasksAssigned: number;
 };
@@ -18,7 +16,6 @@ export default function ProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const avatarLabel = useMemo(() => {
     const source = profile?.name?.trim();
@@ -83,7 +80,6 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Profile" titleStyle={styles.teamNameTitle} />
       </Appbar.Header>
 
@@ -144,18 +140,6 @@ export default function ProfileScreen() {
 
               <View style={styles.detailRow}>
                 <Text variant="labelLarge" style={styles.detailLabel}>
-                  Password
-                </Text>
-                <TouchableOpacity onPress={() => setIsPasswordVisible((prev) => !prev)} activeOpacity={0.8} style={styles.passwordTapArea}>
-                  <Text variant="bodyLarge">{isPasswordVisible ? (profile?.password ?? "-") : "••••••••"}</Text>
-                  <Text variant="bodySmall" style={styles.passwordHint}>
-                    {isPasswordVisible ? "Tap to hide" : "Tap to show"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.detailRow}>
-                <Text variant="labelLarge" style={styles.detailLabel}>
                   Points
                 </Text>
                 <Text variant="bodyLarge">{profile?.points ?? 0}</Text>
@@ -190,7 +174,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: 28,
+    paddingBottom: 110,
   },
   profileCard: {
     marginBottom: 12,
@@ -232,13 +216,6 @@ const styles = StyleSheet.create({
   detailLabel: {
     opacity: 0.7,
     marginBottom: 2,
-  },
-  passwordTapArea: {
-    alignSelf: "flex-start",
-  },
-  passwordHint: {
-    opacity: 0.65,
-    marginTop: 2,
   },
   infoCard: {
     marginBottom: 12,
