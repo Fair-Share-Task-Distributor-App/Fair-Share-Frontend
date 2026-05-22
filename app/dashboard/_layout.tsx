@@ -1,4 +1,5 @@
-import { disableCalendarSync, isCalendarSyncEnabled as getCalendarSyncStatus, initializeGoogleSignIn, syncGoogleCalendar } from "@/utils/googleCalendarSync";
+import { useUserStore } from "@/stores/user-store";
+import { disableCalendarSync, initializeGoogleSignIn, syncGoogleCalendar } from "@/utils/googleCalendarSync";
 import { MaterialDesignIcons } from "@react-native-vector-icons/material-design-icons";
 import { Slot, router, usePathname } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -9,19 +10,14 @@ export default function DashboardLayout() {
   const theme = useTheme();
   const pathname = usePathname();
   const [isCalendarSyncDialogVisible, setIsCalendarSyncDialogVisible] = useState(false);
-  const [isCalendarSyncEnabled, setIsCalendarSyncEnabled] = useState(false);
+  const isCalendarSyncEnabled = useUserStore((state) => state.sync_allowed);
+  const setUserProfile = useUserStore((state) => state.setUserProfile);
   const [isSyncing, setIsSyncing] = useState(false);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   // Initialize Google Sign-In on mount
   useEffect(() => {
     initializeGoogleSignIn();
-    // Check if calendar sync was previously enabled
-    const checkSyncStatus = async () => {
-      const enabled = await getCalendarSyncStatus();
-      setIsCalendarSyncEnabled(enabled);
-    };
-    checkSyncStatus();
   }, []);
 
   const activeSection = useMemo(() => {
@@ -46,10 +42,10 @@ export default function DashboardLayout() {
       setIsSyncing(false);
 
       if (success) {
-        setIsCalendarSyncEnabled(true);
+        setUserProfile({ sync_allowed: true });
         Alert.alert("Success", "Google Calendar sync has been enabled!");
       } else {
-        setIsCalendarSyncEnabled(false);
+        setUserProfile({ sync_allowed: false });
       }
     } else {
       // Disable calendar sync
@@ -58,7 +54,7 @@ export default function DashboardLayout() {
       } catch (err) {
         console.warn("Disconnect call failed:", err);
       }
-      setIsCalendarSyncEnabled(false);
+      setUserProfile({ sync_allowed: false });
       Alert.alert("Success", "Google Calendar sync has been disabled.");
     }
   };

@@ -14,6 +14,7 @@ type AuthResponseData = {
   name: string;
   email: string;
   teamName?: string | null;
+  sync_Allowed?: boolean;
 };
 
 export default function LoginScreen() {
@@ -67,6 +68,8 @@ export default function LoginScreen() {
         });
 
         const authData = (await authResponse.json()) as AuthResponseData;
+        console.log("Google auth response from backend: ", authData);
+
         const { token, isNewUser } = authData;
 
         // Store token securely
@@ -75,6 +78,7 @@ export default function LoginScreen() {
           name: authData.name,
           email: authData.email,
           teamName: authData.teamName ?? undefined,
+          sync_allowed: authData.sync_Allowed,
         });
 
         routeAfterAuth(isNewUser);
@@ -159,6 +163,7 @@ export default function LoginScreen() {
         name: authData.name,
         email: authData.email,
         teamName: authData.teamName ?? undefined,
+        sync_allowed: authData.sync_Allowed,
       });
       routeAfterAuth(isNewUser);
     } catch (error) {
