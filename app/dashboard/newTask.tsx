@@ -174,7 +174,7 @@ export default function NewTaskScreen() {
         <Appbar.Content title="Create Task" titleStyle={styles.teamNameTitle} />
       </Appbar.Header>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Card style={styles.formCard}>
           <Card.Content>
             <Text variant="titleMedium" style={styles.sectionTitle}>
@@ -268,8 +268,9 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   content: {
+    flexGrow: 1,
     padding: 16,
-    paddingBottom: 28,
+    paddingBottom: 120,
   },
   formCard: {
     borderRadius: 12,
@@ -309,7 +310,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   submitButton: {
-    marginTop: 16,
+    marginTop: 8,
     borderRadius: 10,
   },
 });
